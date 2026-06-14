@@ -179,6 +179,13 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 .gate-switch{text-align:center;font-size:.84rem;color:var(--muted);margin-top:14px}
 .gate-switch a{color:var(--accent);font-weight:600;cursor:pointer}
 @keyframes rot{to{transform:rotate(360deg)}}
+/* IA ALIMENT */
+.ai-mic-on{background:var(--bad)!important;color:#fff!important;animation:pulse .9s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.65}}
+.ai-food-row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.ai-food-row .info{flex:1;min-width:0}
+.ai-food-row .nm{font-weight:600;font-size:.9rem}
+.ai-food-row .mac{font-size:.76rem;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -283,6 +290,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
       <button data-pane="scan">📷 Scan</button>
       <button data-pane="fav">⭐ Favoris</button>
       <button data-pane="manual">✏️ Manuel</button>
+      <button data-pane="ai">🤖 IA</button>
     </div>
     <div class="sheet-body">
       <!-- search -->
@@ -303,6 +311,18 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
       <!-- fav -->
       <div class="modpane" id="pane-fav">
         <div id="favPicker"></div>
+      </div>
+      <!-- IA -->
+      <div class="modpane" id="pane-ai">
+        <p class="muted" style="font-size:.84rem;margin:0 0 10px">Décris ce que tu as mangé — en texte ou en dictant à voix haute. L'IA estime les macros pour toi.</p>
+        <div class="fld">
+          <textarea id="ai_desc" rows="3" placeholder="ex : 3 tranches de saucisson et un gros sandwich jambon fromage à la boulangerie" style="width:100%;resize:vertical;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:var(--bg);color:var(--ink);font-family:inherit"></textarea>
+        </div>
+        <div class="row" style="margin-bottom:12px">
+          <button class="btn ghost" id="ai_mic" style="flex:0 0 auto">🎤 Dicter</button>
+          <button class="btn block" id="ai_run">✨ Estimer les macros</button>
+        </div>
+        <div id="ai_results"></div>
       </div>
       <!-- manual -->
       <div class="modpane" id="pane-manual">
@@ -364,7 +384,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V3.2 · 14/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V3.3 · 14/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -643,7 +663,7 @@ $('#favAdd').onclick=()=>openFoodModal(null); // null = ajout aux favoris unique
 let currentDS=null; // jour cible ; null = on gère juste les favoris
 function openFoodModal(ds){currentDS=ds;
   $('#foodModalTitle').textContent=ds?('Ajouter — '+frDate(ds)):'Nouvel aliment favori';
-  $('#offResults').innerHTML='';$('#offQuery').value='';$('#scanResult').innerHTML='';
+  $('#offResults').innerHTML='';$('#offQuery').value='';$('#scanResult').innerHTML='';$('#ai_desc').value='';$('#ai_results').innerHTML='';
   setPane('search');renderFavPicker();$('#foodModal').classList.add('open');}
 function closeFoodModal(){$('#foodModal').classList.remove('open');stopScan();}
 $('#foodClose').onclick=closeFoodModal;
@@ -883,6 +903,45 @@ async function runCoach(){
   btn.disabled=false;
 }
 $('#coachBtn').onclick=runCoach;
+
+/* ============================== IA ALIMENT ============================== */
+let _srec=null,_srecActive=false;
+function getSR(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return null;if(!_srec){_srec=new SR();_srec.lang='fr-FR';_srec.continuous=false;_srec.interimResults=false;}return _srec;}
+$('#ai_mic').onclick=()=>{
+  const sr=getSR();if(!sr){toast('Dictée non supportée sur ce navigateur');return;}
+  const btn=$('#ai_mic');
+  if(_srecActive){sr.stop();return;}
+  sr.onstart=()=>{_srecActive=true;btn.textContent='⏹️ Stop';btn.classList.add('ai-mic-on');};
+  sr.onend=()=>{_srecActive=false;btn.textContent='🎤 Dicter';btn.classList.remove('ai-mic-on');};
+  sr.onresult=e=>{const t=e.results[0][0].transcript;const ta=$('#ai_desc');ta.value=(ta.value?ta.value+' ':'')+t;};
+  sr.onerror=()=>{_srecActive=false;btn.textContent='🎤 Dicter';btn.classList.remove('ai-mic-on');toast('Erreur micro');};
+  try{sr.start();}catch(e){toast('Micro indisponible');}
+};
+async function runFoodAI(){
+  const desc=$('#ai_desc').value.trim();if(!desc){toast('Décris ce que tu as mangé');return;}
+  if(!sb||!authUser){toast('Connecte-toi d\'abord');return;}
+  const btn=$('#ai_run');const res=$('#ai_results');
+  btn.disabled=true;res.innerHTML='<div class="loading"><span class="spin"></span> Analyse en cours…</div>';
+  try{
+    const {data,error}=await sb.functions.invoke('coach',{body:{action:'estimate-food',text:desc}});
+    if(error||!data){res.innerHTML='<div class="empty">Erreur : '+esc(error?.message||'réponse vide')+'</div>';return;}
+    if(data.error){res.innerHTML='<div class="empty">Erreur : '+esc(data.error)+'</div>';return;}
+    const foods=data.foods;
+    if(!foods||!foods.length){res.innerHTML='<div class="empty">Impossible d\'estimer — reformule ta description.</div>';return;}
+    let html='<p class="muted" style="font-size:.8rem;margin:0 0 8px">Estimation IA — vérifie avant d\'ajouter :</p>';
+    foods.forEach((f,i)=>{html+='<div class="ai-food-row"><div class="info"><div class="nm">'+esc(f.name)+'</div><div class="mac">'+Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+'</div></div><button class="btn" data-aii="'+i+'" style="font-size:.8rem;padding:7px 12px">＋</button></div>';});
+    if(foods.length>1)html+='<button class="btn block" id="ai_addall" style="margin-top:4px">＋ Tout ajouter</button>';
+    res.innerHTML=html;
+    res.querySelectorAll('[data-aii]').forEach(b=>b.onclick=()=>{addAIFood(foods[+b.dataset.aii]);b.textContent='✓';b.disabled=true;});
+    const allBtn=$('#ai_addall');if(allBtn)allBtn.onclick=()=>{foods.forEach(f=>addAIFood(f));closeFoodModal();toast('Tout ajouté ✓');};
+  }catch(e){res.innerHTML='<div class="empty">Erreur réseau.</div>';}
+  btn.disabled=false;
+}
+function addAIFood(f){
+  if(currentDS){const d=getDay(currentDS);d.foods.push({n:f.name,k:Math.round(f.kcal),p:f.p,g:f.g,l:f.l});save();renderDays();}
+  else{addFav({name:f.name,per:'unit',kcal:f.kcal,p:f.p,g:f.g,l:f.l,img:''});renderFav();renderFavPicker();}
+}
+$('#ai_run').onclick=runFoodAI;
 
 /* ============================== INIT ============================== */
 $('#buildStamp').textContent='FitNoob '+BUILD;
