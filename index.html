@@ -364,7 +364,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V3.1 · 13/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V3.2 · 14/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -848,10 +848,12 @@ async function gateAuth(){
 function buildCoachSummary(){
   const range=buildDayRange();const today=new Date();today.setHours(0,0,0,0);
   const logged=range.filter(ds=>S.days[ds]&&S.days[ds].foods.length);
-  let cum=0;logged.forEach(ds=>{if(parseDS(ds)<today){const d=S.days[ds];cum+=dayExpend(d)-Math.round(dayKcal(d));}});
+  /* on exclut la journée en cours (non terminée) de tous les calculs envoyés au coach */
+  const loggedPast=logged.filter(ds=>parseDS(ds)<today);
+  let cum=0;loggedPast.forEach(ds=>{const d=S.days[ds];cum+=dayExpend(d)-Math.round(dayKcal(d));});
   const g=goalCalc();const rec=recDeficit();
-  let avg=0;if(logged.length){const d0=parseDS(logged.slice().sort(cmpDS)[0]);const el=Math.max(1,Math.round((today-d0)/86400000)+1);avg=Math.round(cum/el);}
-  const recent=logged.slice(-14).map(ds=>{const d=S.days[ds];const exp=dayExpend(d);const k=Math.round(dayKcal(d));
+  let avg=0;if(loggedPast.length){const d0=parseDS(loggedPast.slice().sort(cmpDS)[0]);const el=Math.max(1,Math.round((today-d0)/86400000)+1);avg=Math.round(cum/el);}
+  const recent=loggedPast.slice(-14).map(ds=>{const d=S.days[ds];const exp=dayExpend(d);const k=Math.round(dayKcal(d));
     return {date:ds,ingere:k,depense:exp,deficit:exp-k,proteines:Math.round(dayMacro(d,'p')),poids:d.weight||null,sport:d.sport?d.sport.name:null};});
   return {
     profil:{sexe:S.profile.sex,age:num(S.profile.age),taille_cm:num(S.profile.height),poids_kg:num(S.profile.weight),
@@ -859,7 +861,7 @@ function buildCoachSummary(){
             activite:actLabel(S.profile.act),sport_h_par_semaine:num(S.profile.sportHours)},
     objectif:g?{poids_cible_kg:+g.targetW.toFixed(1),gras_a_perdre_kg:+g.fatToLose.toFixed(1),kcal_total:Math.round(g.kcal)}:null,
     progression:{deficit_cumule:Math.round(cum),kg_gras_perdus:+(cum/7700).toFixed(2),
-                 pct_objectif:g?+(cum/g.kcal*100).toFixed(1):null,jours_logges:logged.length},
+                 pct_objectif:g?+(cum/g.kcal*100).toFixed(1):null,jours_logges:loggedPast.length},
     deficit_moyen_par_jour:avg,
     deficit_optimal_par_jour:rec?rec.def:null,
     depense_estimee_par_jour:estimatedTDEE(),
