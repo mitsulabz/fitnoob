@@ -179,6 +179,13 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 .gate-switch{text-align:center;font-size:.84rem;color:var(--muted);margin-top:14px}
 .gate-switch a{color:var(--accent);font-weight:600;cursor:pointer}
 @keyframes rot{to{transform:rotate(360deg)}}
+/* AMIS */
+.friend-row{cursor:pointer}.friend-row:active{opacity:.75}
+.freq-row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.freq-row .info{flex:1;min-width:0}
+.freq-row .nm{font-weight:600;font-size:.92rem}
+.freq-row .sub{font-size:.78rem;color:var(--muted)}
+.freq-actions{display:flex;gap:6px;flex:0 0 auto}
 /* IA ALIMENT */
 .ai-mic-on{background:var(--bad)!important;color:#fff!important;animation:pulse .9s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.65}}
@@ -212,6 +219,22 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
     <p class="muted">Tes aliments favoris, réutilisables en un tap dans le suivi.</p>
     <button class="btn block" id="favAdd" style="margin:6px 0 16px">＋ Ajouter un aliment</button>
     <div id="favList"></div>
+  </section>
+
+  <!-- AMIS -->
+  <section class="page" id="page-amis">
+    <h1>Amis</h1>
+    <div class="card">
+      <h2 style="margin-top:0">Ajouter un ami</h2>
+      <p class="muted" style="font-size:.84rem;margin:0 0 10px">Entre l'adresse email de ton ami pour lui envoyer une demande.</p>
+      <div class="searchrow">
+        <input class="inp" id="friend_email" type="email" placeholder="email@exemple.com" style="flex:1">
+        <button class="btn" id="friend_add_btn">Inviter</button>
+      </div>
+      <div id="friend_add_msg" class="muted" style="font-size:.84rem;margin-top:8px;min-height:1.2em"></div>
+    </div>
+    <div id="friend_requests_section"></div>
+    <div id="friend_list_section"></div>
   </section>
 
   <!-- REGLAGES -->
@@ -275,6 +298,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <nav class="tabbar">
   <button class="active" data-tab="suivi"><span class="ic">📊</span>Suivi</button>
   <button data-tab="aliments"><span class="ic">📋</span>Aliments</button>
+  <button data-tab="amis"><span class="ic">👥</span>Amis</button>
   <button data-tab="reglages"><span class="ic">⚙️</span>Réglages</button>
 </nav>
 
@@ -378,13 +402,24 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
   </div>
 </div>
 
+<!-- FRIEND PROFILE MODAL -->
+<div class="modal" id="friendModal">
+  <div class="sheet">
+    <div class="sheet-head">
+      <span class="t" id="friendModalTitle">Profil</span>
+      <button class="iconbtn" id="friendClose">✕</button>
+    </div>
+    <div class="sheet-body" id="friendModalBody"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V3.3 · 14/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V3.4 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -595,7 +630,8 @@ function bindDayEvents(){
 /* ============================== NAV / THEME ============================== */
 function switchTab(t){$$('.tabbar button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
   $$('.page').forEach(p=>p.classList.remove('active'));$('#page-'+t).classList.add('active');
-  window.scrollTo({top:0,behavior:'smooth'});}
+  window.scrollTo({top:0,behavior:'smooth'});
+  if(t==='amis')renderAmis();}
 $$('.tabbar button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 $('#btnSettings').onclick=()=>switchTab('reglages');
 function applyTheme(){document.documentElement.setAttribute('data-theme',S.theme);$('#btnTheme').textContent=S.theme==='dark'?'☀️':'🌙';}
@@ -791,11 +827,11 @@ async function initSync(){
     authUser=(data&&data.session)?data.session.user:null;
     sb.auth.onAuthStateChange(async (ev,sess)=>{
       authUser=sess?sess.user:null;renderAuth();
-      if(authUser){hideGate();if(ev==='SIGNED_IN')await reconcile();}
+      if(authUser){hideGate();if(ev==='SIGNED_IN'){await reconcile();sb.from('profiles').upsert({user_id:authUser.id,email:authUser.email},{onConflict:'user_id'});}}
       else showGate(false);
     });
     renderAuth();
-    if(authUser){hideGate();await reconcile();}
+    if(authUser){hideGate();await reconcile();sb.from('profiles').upsert({user_id:authUser.id,email:authUser.email},{onConflict:'user_id'});}
     else showGate(false);
   }catch(e){showGate(false);$('#gateMsg').textContent='Erreur d’initialisation Supabase.';}
 }
@@ -903,6 +939,165 @@ async function runCoach(){
   btn.disabled=false;
 }
 $('#coachBtn').onclick=runCoach;
+
+/* ============================== AMIS ============================== */
+$('#friendClose').onclick=()=>$('#friendModal').classList.remove('open');
+$('#friendModal').onclick=e=>{if(e.target.id==='friendModal')$('#friendModal').classList.remove('open');};
+
+async function renderAmis(){
+  if(!sb||!authUser){
+    $('#friend_requests_section').innerHTML='';
+    $('#friend_list_section').innerHTML='<p class="muted" style="text-align:center;padding:20px">Connecte-toi pour voir tes amis.</p>';
+    return;
+  }
+  const{data:fs,error}=await sb.from('friendships').select('*').or(`requester_id.eq.${authUser.id},addressee_id.eq.${authUser.id}`);
+  if(error){$('#friend_list_section').innerHTML='<p class="muted">Erreur de chargement.</p>';return;}
+  const all=fs||[];
+  const pending=all.filter(f=>f.status==='pending'&&f.addressee_id===authUser.id);
+  const accepted=all.filter(f=>f.status==='accepted');
+  const sentPending=all.filter(f=>f.status==='pending'&&f.requester_id===authUser.id);
+
+  /* --- demandes reçues --- */
+  let reqHtml='';
+  if(pending.length){
+    const{data:profs}=await sb.from('profiles').select('user_id,email').in('user_id',pending.map(f=>f.requester_id));
+    const em={};(profs||[]).forEach(p=>em[p.user_id]=p.email);
+    reqHtml='<div class="card" style="margin-bottom:16px"><h2 style="margin-top:0">Demandes reçues 🔔</h2>';
+    pending.forEach(f=>{
+      reqHtml+='<div class="freq-row"><div class="info"><div class="nm">'+esc(em[f.requester_id]||'…')+'</div><div class="sub">veut être ton ami</div></div>'+
+        '<div class="freq-actions"><button class="btn fr-resp" data-fid="'+f.id+'" data-act="accepted" style="font-size:.82rem;padding:7px 12px">✓ Accepter</button>'+
+        '<button class="btn ghost fr-resp" data-fid="'+f.id+'" data-act="declined" style="font-size:.82rem;padding:7px 10px">✕</button></div></div>';
+    });
+    reqHtml+='</div>';
+  }
+  $('#friend_requests_section').innerHTML=reqHtml;
+  $$('.fr-resp').forEach(b=>b.onclick=async()=>{
+    await sb.from('friendships').update({status:b.dataset.act}).eq('id',b.dataset.fid);
+    renderAmis();
+  });
+
+  /* --- liste d'amis --- */
+  let listHtml='<div class="card"><h2 style="margin-top:0">Mes amis</h2>';
+  if(!accepted.length&&!sentPending.length){
+    listHtml+='<p class="muted" style="font-size:.86rem">Aucun ami pour l\'instant. Ajoute quelqu\'un avec son email !</p>';
+  }
+  if(accepted.length){
+    const friendIds=accepted.map(f=>f.requester_id===authUser.id?f.addressee_id:f.requester_id);
+    const{data:profs}=await sb.from('profiles').select('user_id,email').in('user_id',friendIds);
+    const em={};(profs||[]).forEach(p=>em[p.user_id]=p.email);
+    accepted.forEach(f=>{
+      const fid=f.requester_id===authUser.id?f.addressee_id:f.requester_id;
+      listHtml+='<div class="freq-row friend-row" data-uid="'+esc(fid)+'" data-email="'+esc(em[fid]||fid)+'">'+
+        '<div class="info"><div class="nm">'+esc(em[fid]||fid)+'</div><div class="sub">Ami ✓ · tap pour voir le profil</div></div>'+
+        '<span style="color:var(--muted);font-size:1.3rem">›</span></div>';
+    });
+  }
+  if(sentPending.length){
+    const ids=sentPending.map(f=>f.addressee_id);
+    const{data:profs}=await sb.from('profiles').select('user_id,email').in('user_id',ids);
+    const em={};(profs||[]).forEach(p=>em[p.user_id]=p.email);
+    listHtml+='<p class="muted" style="font-size:.82rem;margin-top:10px">⏳ En attente : '+sentPending.map(f=>esc(em[f.addressee_id]||f.addressee_id)).join(', ')+'</p>';
+  }
+  listHtml+='</div>';
+  $('#friend_list_section').innerHTML=listHtml;
+  $$('.friend-row').forEach(row=>row.onclick=()=>openFriendProfile(row.dataset.uid,row.dataset.email));
+}
+
+async function sendFriendRequest(){
+  const email=($('#friend_email').value||'').trim().toLowerCase();
+  const msg=$('#friend_add_msg');
+  if(!email){msg.textContent='Saisis un email.';return;}
+  if(!sb||!authUser){msg.textContent='Connecte-toi d\'abord.';return;}
+  if(email===authUser.email){msg.textContent='C\'est ton propre email 😅';return;}
+  msg.textContent='Recherche…';
+  const{data:prof}=await sb.from('profiles').select('user_id').eq('email',email).maybeSingle();
+  if(!prof){msg.textContent='Aucun compte FitNoob trouvé avec cet email.';return;}
+  const fid=prof.user_id;
+  const{data:existing}=await sb.from('friendships').select('id,status')
+    .or(`and(requester_id.eq.${authUser.id},addressee_id.eq.${fid}),and(requester_id.eq.${fid},addressee_id.eq.${authUser.id})`)
+    .maybeSingle();
+  if(existing){
+    msg.textContent=existing.status==='accepted'?'Vous êtes déjà amis !':'Demande déjà en cours.';return;
+  }
+  const{error}=await sb.from('friendships').insert({requester_id:authUser.id,addressee_id:fid});
+  if(error){msg.textContent='Erreur : '+error.message;return;}
+  msg.textContent='Demande envoyée ✓';$('#friend_email').value='';
+  setTimeout(()=>{msg.textContent='';},3000);
+  renderAmis();
+}
+$('#friend_add_btn').onclick=sendFriendRequest;
+$('#friend_email').addEventListener('keydown',e=>{if(e.key==='Enter')sendFriendRequest();});
+
+async function openFriendProfile(userId,email){
+  $('#friendModalTitle').textContent=email;
+  $('#friendModalBody').innerHTML='<div class="loading"><span class="spin"></span> Chargement…</div>';
+  $('#friendModal').classList.add('open');
+  const{data,error}=await sb.from('app_state').select('data').eq('user_id',userId).maybeSingle();
+  if(error||!data){$('#friendModalBody').innerHTML='<p class="muted">Impossible de charger le profil.</p>';return;}
+  $('#friendModalBody').innerHTML=renderFriendProfileContent(data.data,email);
+}
+
+function friendBMR(p){
+  const w=num(p.weight),h=num(p.height),a=num(p.age);if(!w)return 0;
+  if(p.bf){const lbm=w*(1-num(p.bf)/100);return Math.round(370+21.6*lbm);}
+  if(!h||!a)return 0;const base=10*w+6.25*h-5*a;
+  return Math.round(p.sex==='f'?base-161:base+5);
+}
+
+function renderFriendProfileContent(fs,email){
+  if(!fs||!fs.profile)return '<p class="muted">Profil non disponible.</p>';
+  const p=fs.profile;const b=friendBMR(p);
+  const w=num(p.weight),bf=num(p.bf),bft=num(p.bft);
+  /* barre de progression */
+  let goalHtml='';
+  if(w&&bf&&bft&&bft<bf){
+    const lean=w*(1-bf/100),targetW=lean/(1-bft/100),fatToLose=w-targetW,kcalTotal=fatToLose*7700;
+    const todayD=new Date();todayD.setHours(0,0,0,0);
+    let cum=0;
+    if(b)Object.entries(fs.days||{}).forEach(([ds,d])=>{
+      if(parseDS(ds)<todayD&&d.foods&&d.foods.length){
+        const sport=d.sport?num(d.sport.kcal):0;
+        const exp=Math.round(b*actFactor(d.act||p.act||'1.30'))+sport;
+        cum+=exp-Math.round(d.foods.reduce((s,f)=>s+f.k,0));
+      }
+    });
+    const prog=Math.max(0,Math.min(100,cum/kcalTotal*100));
+    const kgLost=cum/7700;
+    goalHtml='<div class="goal" style="margin-bottom:14px">'+
+      '<div class="goal-title">🎯 Objectif : '+targetW.toFixed(1)+' kg · '+bft+' % MG</div>'+
+      '<div class="goal-pct">'+prog.toFixed(1)+'%</div>'+
+      '<div class="goal-prog"><span style="width:'+prog+'%"></span></div>'+
+      '<div class="goal-sub"><b>'+kgLost.toFixed(2)+' kg</b> de gras perdus sur ~'+fatToLose.toFixed(1)+' kg</div></div>';
+  }
+  /* déficit du jour */
+  const todayStr=dstr(new Date());const td=fs.days&&fs.days[todayStr];
+  let todayHtml='';
+  if(td&&td.foods&&td.foods.length){
+    const k=Math.round(td.foods.reduce((s,f)=>s+f.k,0));
+    const sport=td.sport?num(td.sport.kcal):0;
+    const exp=b?Math.round(b*actFactor(td.act||p.act||'1.30'))+sport:0;
+    const def=exp-k;const dc=def>=0?'pos':'neg';
+    todayHtml='<div class="card" style="margin-bottom:0"><h2 style="margin-top:0">Aujourd\'hui</h2>'+
+      '<div class="energy"><span>Ingéré <b>'+k+'</b> kcal</span>'+(exp?'<span>Dépensé <b>'+exp+'</b> kcal</span><span>Déficit <b class="'+dc+'">'+(def>=0?'+':'')+def+'</b> kcal</span>':'')+'</div>'+
+      (td.sport?'<div class="field" style="margin-top:6px">🏃 '+esc(td.sport.name)+'</div>':'')+
+      '</div>';
+  }else{
+    todayHtml='<div class="card" style="margin-bottom:0"><h2 style="margin-top:0">Aujourd\'hui</h2><p class="muted">Pas encore de repas loggés.</p></div>';
+  }
+  /* profil */
+  const actLbl=p.act?actLabel(p.act):'—';
+  const profileHtml='<div class="card" style="margin-bottom:14px"><h2 style="margin-top:0">Profil</h2>'+
+    '<div class="kpi">'+
+    (p.age?'<div class="k"><div class="v">'+p.age+'</div><div class="l">Âge</div></div>':'')+
+    (w?'<div class="k"><div class="v">'+w+'</div><div class="l">Poids (kg)</div></div>':'')+
+    (p.height?'<div class="k"><div class="v">'+p.height+'</div><div class="l">Taille (cm)</div></div>':'')+
+    (bf?'<div class="k"><div class="v">'+bf+'%</div><div class="l">Masse grasse</div></div>':'')+
+    (bft?'<div class="k"><div class="v">'+bft+'%</div><div class="l">Objectif MG</div></div>':'')+
+    (b?'<div class="k"><div class="v">'+b+'</div><div class="l">BMR kcal</div></div>':'')+
+    '</div>'+
+    '<p class="muted" style="font-size:.8rem;margin:8px 0 0">Activité : '+esc(actLbl)+(p.sportHours?' · '+p.sportHours+' h sport/sem':'')+'</p></div>';
+  return profileHtml+goalHtml+todayHtml;
+}
 
 /* ============================== IA ALIMENT ============================== */
 let _srec=null,_srecActive=false;
