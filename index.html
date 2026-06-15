@@ -129,6 +129,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:480px){.form-grid{grid-template-columns:1fr}}
 .form-grid label,.fld label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px;font-weight:600}
+.fld label.tog{display:flex;align-items:center;margin-bottom:0}
 .fld{margin-bottom:12px}
 .form-grid input,.form-grid select,.fld input,.fld select{width:100%;border:1px solid var(--line);border-radius:11px;padding:10px 12px;background:var(--bg);color:var(--ink);font-size:.95rem}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px}
@@ -182,10 +183,11 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 /* TOGGLE SWITCH */
 .tog{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
 .tog input{display:none}
-.tog-track{width:42px;height:24px;border-radius:12px;background:var(--line);transition:.2s;position:relative;flex:0 0 42px}
+.tog-track{width:44px;height:26px;border-radius:13px;background:#b8b0c8;transition:.2s;position:relative;flex:0 0 44px}
 .tog input:checked+.tog-track{background:var(--accent)}
-.tog-track::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.tog input:checked+.tog-track::after{left:21px}
+.tog-track::after{content:'';position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.tog input:checked+.tog-track::after{left:22px}
+[data-theme="dark"] .tog-track{background:#6b6488}
 /* MACRO CIBLES */
 .mleg .tgt{color:var(--muted);font-size:.78em}
 .mleg .ok{color:var(--ok)}.mleg .over{color:var(--bad)}
@@ -451,7 +453,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V3.6 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V3.7 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
