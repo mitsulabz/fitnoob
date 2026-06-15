@@ -179,6 +179,16 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 .gate-switch{text-align:center;font-size:.84rem;color:var(--muted);margin-top:14px}
 .gate-switch a{color:var(--accent);font-weight:600;cursor:pointer}
 @keyframes rot{to{transform:rotate(360deg)}}
+/* TOGGLE SWITCH */
+.tog{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.tog input{display:none}
+.tog-track{width:42px;height:24px;border-radius:12px;background:var(--line);transition:.2s;position:relative;flex:0 0 42px}
+.tog input:checked+.tog-track{background:var(--accent)}
+.tog-track::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tog input:checked+.tog-track::after{left:21px}
+/* MACRO CIBLES */
+.mleg .tgt{color:var(--muted);font-size:.78em}
+.mleg .ok{color:var(--ok)}.mleg .over{color:var(--bad)}
 /* AMIS */
 .friend-row{cursor:pointer}.friend-row:active{opacity:.75}
 .freq-row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
@@ -208,7 +218,9 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
     <div class="goal" id="goal"></div>
     <div class="coach" id="coachCard">
       <button class="coach-btn" id="coachBtn">🤖 Demander un bilan au coach</button>
-      <div id="coachOut" class="coach-out"></div>
+      <div id="coachOut" class="coach-out">
+        <div id="coachOutInner"></div>
+      </div>
     </div>
     <div id="days"></div>
   </section>
@@ -248,15 +260,29 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
         <div><label>Taille (cm)</label><input type="number" id="p_height" min="120" max="230" placeholder="cm"></div>
         <div><label>Poids actuel (kg)</label><input type="number" id="p_weight" min="30" max="300" step="0.1" placeholder="kg"></div>
         <div><label>% masse grasse actuel</label><input type="number" id="p_bf" min="3" max="70" step="0.1" placeholder="%"></div>
-        <div><label>% masse grasse cible</label><input type="number" id="p_bft" min="3" max="60" step="0.1" placeholder="%"></div>
+        <div id="bft_field"><label>% masse grasse cible</label><input type="number" id="p_bft" min="3" max="60" step="0.1" placeholder="%"></div>
       </div>
       <div class="fld" style="margin-top:12px">
+        <label>Type d'objectif</label>
+        <select id="p_goalmode">
+          <option value="bf">% de masse grasse cible</option>
+          <option value="weight">Poids cible (kg)</option>
+        </select>
+      </div>
+      <div class="fld" id="goalweight_field" style="display:none">
+        <label>Poids cible (kg)</label>
+        <input type="number" id="p_goalweight" min="30" max="300" step="0.1" placeholder="ex : 85">
+      </div>
+      <div class="fld">
         <label>Niveau d'activité hors sport (au quotidien)</label>
         <select id="p_act"></select>
       </div>
       <div class="fld">
         <label>Sport : heures par semaine (estimation)</label>
         <input type="number" id="p_sporth" min="0" max="40" step="0.5" placeholder="ex : 4">
+      </div>
+      <div class="fld">
+        <label class="tog"><input type="checkbox" id="p_showsteps"><span class="tog-track"></span> Afficher les pas dans le suivi</label>
       </div>
       <button class="btn block" id="saveProfile" style="margin-top:6px">Enregistrer le profil</button>
       <div class="kpi" id="kpi" style="margin-top:14px"></div>
@@ -279,6 +305,12 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
       <p class="muted" style="font-size:.84rem">Ton compte synchronise tes données sur tous tes appareils (iPhone, iPad, ordi).</p>
       <div id="syncBox"></div>
       <div id="syncStatus" class="muted" style="font-size:.78rem;margin-top:8px"></div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+      <h2 style="margin:0 0 10px;font-size:1rem">Confidentialité amis</h2>
+      <p class="muted" style="font-size:.84rem;margin:0 0 10px">Choisis ce que tes amis peuvent voir sur ton profil.</p>
+      <div class="fld"><label class="tog"><input type="checkbox" id="p_sharehistory"><span class="tog-track"></span> Partager mon historique alimentaire</label></div>
+      <div class="fld"><label class="tog"><input type="checkbox" id="p_sharefoods"><span class="tog-track"></span> Partager mes aliments favoris</label></div>
+      <button class="btn ghost" id="savePrivacy" style="margin-top:4px;font-size:.88rem">Enregistrer</button>
     </div>
 
     <div class="card">
@@ -419,7 +451,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V3.4 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V3.5 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -427,7 +459,7 @@ const LS_KEY='fitnoob_v1';
 const SUPABASE_URL='https://arydsxswhbgpfayjgtak.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyeWRzeHN3aGJncGZheWpndGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODU1NzcsImV4cCI6MjA5Njk2MTU3N30.JwhGPqopTzi74jv-1zM5JSOAZ0O78p1Q667pB4ZMcH8';
 
-const DEFAULT={profile:{age:'',sex:'h',height:'',weight:'',bf:'',bft:'',act:'1.30',sportHours:''},
+const DEFAULT={profile:{age:'',sex:'h',height:'',weight:'',bf:'',bft:'',act:'1.30',sportHours:'',goalMode:'bf',goalWeight:'',showSteps:false,shareHistory:false,shareFoods:false},
   days:{},favorites:[],sports:[],theme:'light'};
 let S=load();
 function load(){try{const r=localStorage.getItem(LS_KEY);if(r){const o=JSON.parse(r);return migrateState(Object.assign(JSON.parse(JSON.stringify(DEFAULT)),o));}}catch(e){}return JSON.parse(JSON.stringify(DEFAULT));}
@@ -478,13 +510,17 @@ function actFactor(k){if(k in OLD_ACT)return OLD_ACT[k];const f=parseFloat(k);re
 function actLabel(k){k=migrateAct(k);const l=ACT_LEVELS.find(x=>x.key===k);return l?l.label:'—';}
 function migrateAct(k){const m={sed:'1.20',act:'1.40',sup:'1.60'};return m[k]||k;}
 function tdeeBase(){const b=bmr();return b?Math.round(b*actFactor(S.profile.act)):0;}
-/* objectif : kg de gras à perdre + kcal totales (masse maigre supposée constante) */
-function goalCalc(){const p=S.profile;const w=num(p.weight),bf=num(p.bf),bft=num(p.bft);
-  if(!w||!bf||!bft||bft>=bf)return null;
-  const lean=w*(1-bf/100);
-  const targetW=lean/(1-bft/100);
-  const fatToLose=w-targetW;
-  const kcal=fatToLose*7700;
+/* objectif : kg à perdre + kcal totales — supporte 2 modes */
+function goalCalc(){const p=S.profile;const w=num(p.weight);if(!w)return null;
+  if(p.goalMode==='weight'){
+    const gw=num(p.goalWeight);if(!gw||gw>=w)return null;
+    const fatToLose=w-gw;const kcal=fatToLose*7700;
+    return {targetW:gw,fatToLose,kcal,curW:w,byWeight:true};
+  }
+  const bf=num(p.bf),bft=num(p.bft);
+  if(!bf||!bft||bft>=bf)return null;
+  const lean=w*(1-bf/100);const targetW=lean/(1-bft/100);
+  const fatToLose=w-targetW;const kcal=fatToLose*7700;
   return {targetW,fatToLose,kcal,curW:w};}
 
 /* === PROJECTION : dépense estimée à partir de 2 données du profil ===
@@ -527,9 +563,18 @@ function buildDayRange(){const keys=Object.keys(S.days).filter(k=>dayUsed(S.days
   if(out.indexOf(dstr(today))<0)out.push(dstr(today));
   return out;}
 
-function macroBar(p,g,l){const pc=p*4,gc=g*4,lc=l*9,t=(pc+gc+lc)||1;
+function targetMacros(tIntake,weight){if(!tIntake||!weight)return null;
+  const tp=Math.round(Math.min(weight*1.8,tIntake*0.35/4));
+  const tl=Math.round(Math.max(weight*0.8,tIntake*0.25/9));
+  const tg=Math.max(0,Math.round((tIntake-tp*4-tl*9)/4));
+  return {tp,tg,tl};}
+function macroBar(p,g,l,tm){const pc=p*4,gc=g*4,lc=l*9,t=(pc+gc+lc)||1;
+  function leg(val,tgt,color,label){
+    const cl=tgt?(val>tgt?'over':'ok'):'';
+    const tgtStr=tgt?('<span class="tgt"> / '+tgt+'g</span>'):'';
+    return '<span><i class="d '+color+'"></i>'+label+' <span class="'+cl+'">'+Math.round(val)+'g</span>'+tgtStr+'</span>';}
   return '<div class="mbar"><span class="mp" style="width:'+(pc/t*100)+'%"></span><span class="mg" style="width:'+(gc/t*100)+'%"></span><span class="ml" style="width:'+(lc/t*100)+'%"></span></div>'+
-  '<div class="mleg"><span><i class="d mp"></i>Prot. '+Math.round(p)+' g</span><span><i class="d mg"></i>Gluc. '+Math.round(g)+' g</span><span><i class="d ml"></i>Lip. '+Math.round(l)+' g</span></div>';}
+  '<div class="mleg">'+leg(p,tm&&tm.tp,'mp','Prot.')+leg(g,tm&&tm.tg,'mg','Gluc.')+leg(l,tm&&tm.tl,'ml','Lip.')+'</div>';}
 
 function renderDays(){
   const box=$('#days');const range=buildDayRange();const today=dstr(new Date());
@@ -554,6 +599,7 @@ function renderDays(){
     S.sports.forEach((sp,i)=>{const sel=(day.sport&&day.sport.name===sp.name)?' selected':'';sportOpts+='<option value="'+i+'"'+sel+'>'+esc(sp.name)+' ('+sp.kcal+' kcal)</option>';});
     const sportSel='<div class="field">🏃 Sport <select class="sportsel" data-ds="'+ds+'">'+sportOpts+'</select></div>';
     const weightRow='<div class="field">⚖️ Poids <input class="inp xs wt" data-ds="'+ds+'" value="'+esc(day.weight||'')+'" placeholder="—"> kg</div>';
+    const stepsRow=S.profile.showSteps?'<div class="field">👟 Pas <input class="inp xs steps-inp" data-ds="'+ds+'" value="'+esc(day.steps||'')+'" placeholder="—"></div>':'';
     /* cible adaptative du jour : -20% de la dépense réelle de CE jour */
     const tDef=deficitFor(exp);const tIntake=Math.round(exp-tDef);
     let targetRow;
@@ -564,13 +610,14 @@ function renderDays(){
     else energy='<div class="energy"><span class="muted">Repas à compléter</span><span class="cum">Dépense est. '+Math.round(exp)+'</span></div>';
     let li='';day.foods.forEach((f,fi)=>{li+='<li><span>'+esc(f.n)+'</span><span class="r">'+Math.round(f.k)+' kcal <button class="rmf" data-ds="'+ds+'" data-fi="'+fi+'">✕</button></span></li>';});
     const foods='<details class="foods"'+(day.foods.length?' open':'')+'><summary>Aliments ('+day.foods.length+')</summary><ul>'+li+'</ul><button class="addfoodbtn" data-ds="'+ds+'">＋ Ajouter un aliment</button></details>';
-    const macro=logged?macroBar(P,G,L):'';
-    const op=isToday?' open':'';
-    cards.push('<details class="day'+(isToday?' today':'')+'" data-ds="'+ds+'"'+op+'>'+
-      '<summary><span class="sum-date">'+frDate(ds)+(isToday?' • aujourd’hui':'')+'</span>'+
-      '<span class="sum-meta">'+(sportTxt?esc(sportTxt)+'<br>':'')+sumDef+'</span></summary>'+
+    const tm=logged?targetMacros(tIntake,num(S.profile.weight)):null;
+    const macro=logged?macroBar(P,G,L,tm):’’;
+    const op=isToday?’ open’:’’;
+    cards.push(‘<details class="day’+(isToday?’ today’:’’)+’" data-ds="’+ds+’"’+op+’>’+
+      ‘<summary><span class="sum-date">’+frDate(ds)+(isToday?’ • aujourd\’hui’:’’)+’</span>’+
+      ‘<span class="sum-meta">’+(sportTxt?esc(sportTxt)+’<br>’:’’)+sumDef+’</span></summary>’+
       actSel+sportSel+
-      '<div class="row">'+weightRow+'</div>'+targetRow+
+      ‘<div class="row">’+weightRow+stepsRow+’</div>’+targetRow+
       macro+energy+foods+'</details>');
   });
   box.innerHTML=cards.reverse().join('');
@@ -608,7 +655,8 @@ function renderGoal(cum,range){
   /* phrases courtes affichées ; le détail complet est dépliable via le point info */
   const short1=(logged.length&&avg>0)?('😎 Je serai bogoss le <b>'+finDate(avg)+'</b>'):'📊 Logge quelques jours pour l’estimer';
   const short2=rec?('💪 En tryhardant au max, je serai bogoss le <b>'+finDate(rec.def)+'</b>'):'🎯 Complète ton profil pour l’estimer';
-  box.innerHTML='<div class="goal-title">🎯 Objectif : '+g.targetW.toFixed(1)+' kg · '+bft+' % MG</div>'+
+  const goalLabel=g.byWeight?('🎯 Objectif : '+g.targetW.toFixed(1)+' kg'):('🎯 Objectif : '+g.targetW.toFixed(1)+' kg · '+bft+' % MG');
+  box.innerHTML='<div class="goal-title">'+goalLabel+'</div>'+
     '<div class="goal-pct">'+prog.toFixed(1)+'%</div>'+
     '<div class="goal-prog"><span style="width:'+prog+'%"></span></div>'+
     '<div class="goal-sub"><b>'+kgLost.toFixed(2)+' kg</b> de gras perdus sur ~'+g.fatToLose.toFixed(1)+' kg · déficit cumulé <b>'+Math.round(cum)+'</b> / '+Math.round(g.kcal).toLocaleString('fr-FR')+' kcal</div>'+
@@ -623,6 +671,7 @@ function bindDayEvents(){
   $$('.actsel').forEach(sel=>sel.onchange=()=>{getDay(sel.dataset.ds).act=sel.value;save();renderDays();});
   $$('.sportsel').forEach(sel=>sel.onchange=()=>{const d=getDay(sel.dataset.ds);const v=sel.value;d.sport=(v==='')?null:{name:S.sports[v].name,kcal:S.sports[v].kcal};save();renderDays();});
   $$('.wt').forEach(i=>i.onchange=()=>{getDay(i.dataset.ds).weight=i.value.trim();save();renderDays();});
+  $$('.steps-inp').forEach(i=>i.onchange=()=>{getDay(i.dataset.ds).steps=i.value.trim();save();});
   $$('.rmf').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();const d=getDay(b.dataset.ds);d.foods.splice(+b.dataset.fi,1);save();renderDays();});
   $$('.addfoodbtn').forEach(b=>b.onclick=()=>openFoodModal(b.dataset.ds));
 }
@@ -657,10 +706,17 @@ window.addEventListener('pageshow',e=>{if(e.persisted)checkForUpdate();});
 window.addEventListener('focus',checkForUpdate);
 
 /* ============================== REGLAGES : PROFIL ============================== */
+function updateGoalModeUI(){const m=$('#p_goalmode').value;$('#goalweight_field').style.display=m==='weight'?'':'none';$('#bft_field').style.display=m==='weight'?'none':'';}
 function fillProfile(){const p=S.profile;
   $('#p_act').innerHTML=ACT_LEVELS.map(l=>'<option value="'+l.key+'">'+l.label+' — '+l.desc+'</option>').join('');
   $('#p_age').value=p.age;$('#p_sex').value=p.sex;$('#p_height').value=p.height;
-  $('#p_weight').value=p.weight;$('#p_bf').value=p.bf;$('#p_bft').value=p.bft;$('#p_act').value=migrateAct(p.act||'1.30');$('#p_sporth').value=p.sportHours||'';renderKPI();}
+  $('#p_weight').value=p.weight;$('#p_bf').value=p.bf;$('#p_bft').value=p.bft;
+  $('#p_act').value=migrateAct(p.act||'1.30');$('#p_sporth').value=p.sportHours||'';
+  $('#p_goalmode').value=p.goalMode||'bf';$('#p_goalweight').value=p.goalWeight||'';
+  $('#p_showsteps').checked=!!p.showSteps;
+  $('#p_sharehistory').checked=!!p.shareHistory;$('#p_sharefoods').checked=!!p.shareFoods;
+  updateGoalModeUI();renderKPI();}
+$('#p_goalmode').onchange=updateGoalModeUI;
 function renderKPI(){const b=bmr();const tdee=estimatedTDEE();const g=goalCalc();const rec=recDeficit();const sp=dailySportEstimate();
   let h='<div class="k"><div class="v">'+(b||'—')+'</div><div class="l">Métabolisme de base</div></div>'+
     '<div class="k"><div class="v">'+(tdee||'—')+'</div><div class="l">Dépense estimée / jour'+(sp?' (dont ~'+sp+' de sport)':'')+'</div></div>';
@@ -670,7 +726,10 @@ function renderKPI(){const b=bmr();const tdee=estimatedTDEE();const g=goalCalc()
   $('#kpi').innerHTML=h;
   $('#bmrNote').textContent=(S.profile.bf?'Métabolisme via Katch-McArdle (masse maigre). ':'Métabolisme via Mifflin-St-Jeor (renseigne ton % de masse grasse pour plus de précision). ')+'La dépense estimée sert à la projection ; le suivi quotidien utilise ta dépense réelle.';}
 $('#saveProfile').onclick=()=>{const p=S.profile;p.age=$('#p_age').value;p.sex=$('#p_sex').value;p.height=$('#p_height').value;
-  p.weight=$('#p_weight').value;p.bf=$('#p_bf').value;p.bft=$('#p_bft').value;p.act=$('#p_act').value;p.sportHours=$('#p_sporth').value;save();renderKPI();renderDays();toast('Profil enregistré ✓');};
+  p.weight=$('#p_weight').value;p.bf=$('#p_bf').value;p.bft=$('#p_bft').value;p.act=$('#p_act').value;p.sportHours=$('#p_sporth').value;
+  p.goalMode=$('#p_goalmode').value;p.goalWeight=$('#p_goalweight').value;p.showSteps=$('#p_showsteps').checked;
+  save();renderKPI();renderDays();toast('Profil enregistré ✓');};
+$('#savePrivacy').onclick=()=>{const p=S.profile;p.shareHistory=$('#p_sharehistory').checked;p.shareFoods=$('#p_sharefoods').checked;save();toast('Préférences enregistrées ✓');};
 
 /* sports presets */
 function renderSports(){const box=$('#sportList');if(!S.sports.length){box.innerHTML='<p class="muted" style="font-size:.84rem">Aucun preset pour l’instant.</p>';return;}
@@ -924,21 +983,23 @@ function buildCoachSummary(){
     jours_recents:recent
   };
 }
+function coachClose(){$(‘#coachOutInner’).innerHTML=’’;}
 async function runCoach(){
-  const out=$('#coachOut');const btn=$('#coachBtn');
-  if(!sb||!authUser){out.textContent='Connecte-toi pour utiliser le coach.';return;}
-  if(!goalCalc()){out.innerHTML='<div class="coach-text">Renseigne d’abord ton profil et ton objectif dans les Réglages.</div>';return;}
-  btn.disabled=true;out.innerHTML='<div class="coach-text"><span class="spin"></span> Analyse de ton suivi en cours…</div>';
+  const inner=$(‘#coachOutInner’);const btn=$(‘#coachBtn’);
+  const closeBtn=’<button onclick="coachClose()" style="float:right;border:none;background:transparent;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:0 0 4px 8px" title="Fermer">✕</button>’;
+  if(!sb||!authUser){inner.innerHTML=’<div class="coach-text">Connecte-toi pour utiliser le coach.</div>’;return;}
+  if(!goalCalc()){inner.innerHTML=’<div class="coach-text">Renseigne d\’abord ton profil et ton objectif dans les Réglages.</div>’;return;}
+  btn.disabled=true;inner.innerHTML=’<div class="coach-text"><span class="spin"></span> Analyse de ton suivi en cours…</div>’;
   try{
-    const {data,error}=await sb.functions.invoke('coach',{body:{summary:buildCoachSummary()}});
-    if(error){out.innerHTML='<div class="coach-text">Coach indisponible : '+esc(error.message||(''+error))+'<br><span class="muted">(la fonction « coach » est-elle déployée ?)</span></div>';}
-    else if(data&&data.error){out.innerHTML='<div class="coach-text">Erreur : '+esc(data.error)+'</div>';}
-    else{const t=esc(data&&data.text?data.text:'Réponse vide.').replace(/\n/g,'<br>');
-      out.innerHTML='<div class="coach-text">'+t+'</div>';}
-  }catch(e){out.innerHTML='<div class="coach-text">Erreur réseau.</div>';}
+    const {data,error}=await sb.functions.invoke(‘coach’,{body:{summary:buildCoachSummary()}});
+    if(error){inner.innerHTML=’<div class="coach-text">’+closeBtn+’Coach indisponible : ‘+esc(error.message||(‘’+error))+’</div>’;}
+    else if(data&&data.error){inner.innerHTML=’<div class="coach-text">’+closeBtn+’Erreur : ‘+esc(data.error)+’</div>’;}
+    else{const t=esc(data&&data.text?data.text:’Réponse vide.’).replace(/\n/g,’<br>’);
+      inner.innerHTML=’<div class="coach-text">’+closeBtn+t+’</div>’;}
+  }catch(e){inner.innerHTML=’<div class="coach-text">’+closeBtn+’Erreur réseau.</div>’;}
   btn.disabled=false;
 }
-$('#coachBtn').onclick=runCoach;
+$(‘#coachBtn’).onclick=runCoach;
 
 /* ============================== AMIS ============================== */
 $('#friendClose').onclick=()=>$('#friendModal').classList.remove('open');
@@ -1096,7 +1157,37 @@ function renderFriendProfileContent(fs,email){
     (b?'<div class="k"><div class="v">'+b+'</div><div class="l">BMR kcal</div></div>':'')+
     '</div>'+
     '<p class="muted" style="font-size:.8rem;margin:8px 0 0">Activité : '+esc(actLbl)+(p.sportHours?' · '+p.sportHours+' h sport/sem':'')+'</p></div>';
-  return profileHtml+goalHtml+todayHtml;
+  /* historique (7 derniers jours) si partagé */
+  let histHtml='';
+  if(fs.profile&&fs.profile.shareHistory){
+    const todayD2=new Date();todayD2.setHours(0,0,0,0);
+    const recent=Object.keys(fs.days||{}).filter(ds=>{const d=parseDS(ds);return d<todayD2&&fs.days[ds].foods&&fs.days[ds].foods.length;}).sort(cmpDS).slice(-7);
+    if(recent.length){
+      histHtml='<div class="card" style="margin-top:14px"><h2 style="margin-top:0">Historique récent</h2>';
+      recent.reverse().forEach(ds=>{
+        const d=fs.days[ds];const k=Math.round(d.foods.reduce((s,f)=>s+f.k,0));
+        const exp=b?Math.round(b*actFactor(d.act||p.act||'1.30'))+(d.sport?num(d.sport.kcal):0):0;
+        const def=exp-k;const dc=def>=0?'pos':'neg';
+        histHtml+='<div style="display:flex;justify-content:space-between;font-size:.85rem;padding:5px 0;border-bottom:1px dashed var(--line)">'+
+          '<span>'+frDate(ds)+'</span>'+
+          '<span><b>'+k+'</b> kcal'+(exp?' · <b class="'+dc+'">'+(def>=0?'+':'')+def+'</b>':'')+'</span></div>';
+      });
+      histHtml+='</div>';
+    }
+  }
+  /* aliments favoris si partagés */
+  let foodsHtml='';
+  if(fs.profile&&fs.profile.shareFoods&&fs.favorites&&fs.favorites.length){
+    foodsHtml='<div class="card" style="margin-top:14px"><h2 style="margin-top:0">Aliments favoris</h2>';
+    fs.favorites.slice(0,10).forEach(f=>{
+      foodsHtml+='<div class="fav" style="margin-bottom:8px">'+
+        (f.img?'<img src="'+esc(f.img)+'" style="width:36px;height:36px;border-radius:8px;object-fit:cover">':'')+
+        '<div class="info"><div class="nm">'+esc(f.name)+'</div>'+
+        '<div class="mac">'+Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+(f.per==='unit'?' /portion':' /100g')+'</div></div></div>';
+    });
+    foodsHtml+='</div>';
+  }
+  return profileHtml+goalHtml+todayHtml+histHtml+foodsHtml;
 }
 
 /* ============================== IA ALIMENT ============================== */
