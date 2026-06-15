@@ -453,7 +453,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V4.3 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V4.4 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -569,13 +569,14 @@ function targetMacros(tIntake,weight){if(!tIntake||!weight)return null;
   const tp=Math.round(Math.min(weight*1.8,tIntake*0.35/4));
   const tl=Math.round(Math.max(weight*0.8,tIntake*0.25/9));
   const tg=Math.max(0,Math.round((tIntake-tp*4-tl*9)/4));
-  return {tp,tg,tl};}
+  const tfi=Math.round(tIntake/1000*14); /* 14g / 1000 kcal — recommandation OMS */
+  return {tp,tg,tl,tfi};}
 function macroBar(p,g,l,tm,fi){const pc=p*4,gc=g*4,lc=l*9,t=(pc+gc+lc)||1;
   function leg(val,tgt,color,label){
     const cl=tgt?(val>tgt?'over':'ok'):'';
     const tgtStr=tgt?('<span class="tgt"> / '+tgt+'g</span>'):'';
     return '<span><i class="d '+color+'"></i>'+label+' <span class="'+cl+'">'+Math.round(val)+'g</span>'+tgtStr+'</span>';}
-  const fiStr=(fi>0)?('<span><i class="d" style="background:#7ec8a0"></i>Fibres <span>'+Math.round(fi)+'g</span></span>'):'';  
+  const fiStr=(fi>0||( tm&&tm.tfi))?leg(fi||0,tm&&tm.tfi,'','Fibres').replace('<i class="d "></i>','<i class="d" style="background:#7ec8a0"></i>'):'';
   return '<div class="mbar"><span class="mp" style="width:'+(pc/t*100)+'%"></span><span class="mg" style="width:'+(gc/t*100)+'%"></span><span class="ml" style="width:'+(lc/t*100)+'%"></span></div>'+
   '<div class="mleg">'+leg(p,tm&&tm.tp,'mp','Prot.')+leg(g,tm&&tm.tg,'mg','Gluc.')+leg(l,tm&&tm.tl,'ml','Lip.')+fiStr+'</div>';}
 
