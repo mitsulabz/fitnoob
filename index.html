@@ -209,7 +209,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 </head>
 <body>
 <header>
-  <div class="brand"><span class="dot"></span> FitNoob <span class="ver" id="brandVer"></span></div>
+  <div class="brand"><span class="dot"></span> FitNoob <span class="ver" id="brandVer"></span><button id="btnReload" title="Recharger l\'app" onclick="location.reload(true)" style="background:none;border:none;cursor:pointer;font-size:.75rem;padding:0 0 0 4px;opacity:.55;line-height:1">↺</button></div>
   <button class="iconbtn" id="btnSettings" title="Réglages">⚙️</button>
   <button class="iconbtn" id="btnTheme" title="Thème">🌙</button>
 </header>
@@ -452,7 +452,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V4.0 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V4.1 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
