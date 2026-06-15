@@ -311,7 +311,6 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
       <h2 style="margin:0 0 10px;font-size:1rem">Confidentialité amis</h2>
       <p class="muted" style="font-size:.84rem;margin:0 0 10px">Choisis ce que tes amis peuvent voir sur ton profil.</p>
       <div class="fld"><label class="tog"><input type="checkbox" id="p_sharehistory"><span class="tog-track"></span> Partager mon historique alimentaire</label></div>
-      <div class="fld"><label class="tog"><input type="checkbox" id="p_sharefoods"><span class="tog-track"></span> Partager mes aliments favoris</label></div>
       <button class="btn ghost" id="savePrivacy" style="margin-top:4px;font-size:.88rem">Enregistrer</button>
     </div>
 
@@ -453,7 +452,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V3.9 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V4.0 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -461,7 +460,7 @@ const LS_KEY='fitnoob_v1';
 const SUPABASE_URL='https://arydsxswhbgpfayjgtak.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyeWRzeHN3aGJncGZheWpndGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODU1NzcsImV4cCI6MjA5Njk2MTU3N30.JwhGPqopTzi74jv-1zM5JSOAZ0O78p1Q667pB4ZMcH8';
 
-const DEFAULT={profile:{age:'',sex:'h',height:'',weight:'',bf:'',bft:'',act:'1.30',sportHours:'',goalMode:'bf',goalWeight:'',showSteps:false,shareHistory:true,shareFoods:true},
+const DEFAULT={profile:{age:'',sex:'h',height:'',weight:'',bf:'',bft:'',act:'1.30',sportHours:'',goalMode:'bf',goalWeight:'',showSteps:false,shareHistory:true},
   days:{},favorites:[],sports:[],theme:'light'};
 let S=load();
 function load(){try{const r=localStorage.getItem(LS_KEY);if(r){const o=JSON.parse(r);return migrateState(Object.assign(JSON.parse(JSON.stringify(DEFAULT)),o));}}catch(e){}return JSON.parse(JSON.stringify(DEFAULT));}
@@ -631,7 +630,7 @@ function getDayRO(ds){return S.days[ds]||{weight:'',act:S.profile.act||'1.30',sp
 
 function renderGoal(cum,range){
   const g=goalCalc();const box=$('#goal');
-  if(!g){box.innerHTML='<div class="goal-empty">🎯 <b>Définis ton objectif</b><br>Renseigne ton poids, ton % de masse grasse actuel et cible dans les Réglages pour activer le suivi de l’objectif.<br><button class="btn" id="goGoal">Aller aux Réglages</button></div>';
+  if(!g){box.innerHTML='<div class="goal-empty">🎯 <b>Définis ton objectif</b><br>Renseigne ton poids, ton % de masse grasse actuel et cible dans les Réglages pour activer le suivi de l\'objectif.<br><button class="btn" id="goGoal">Aller aux Réglages</button></div>';
     const b=$('#goGoal');if(b)b.onclick=()=>switchTab('reglages');return;}
   const prog=Math.max(0,Math.min(100,cum/g.kcal*100));
   const kgLost=cum/7700;
@@ -647,16 +646,16 @@ function renderGoal(cum,range){
   const sportTxt=sportH>0?('<b>'+sportH+' h de sport/semaine</b>'):'<b>sans sport régulier</b>';
   /* Phrase 1 : projection au rythme RÉEL de l'historique */
   let p1;
-  if(logged.length&&avg>0) p1='📊 D’après mon historique, mon déficit moyen est de <b>'+Math.round(avg)+' kcal/jour</b>. Si je continue comme ça, j’atteins mon objectif de <b>'+bft+' % de masse grasse</b> le <b>'+finDate(avg)+'</b>.';
-  else if(logged.length) p1='📊 D’après mon historique, je n’ai pas de déficit moyen (plutôt en surplus) : à ce rythme, l’objectif n’avance pas.';
-  else p1='📊 Pas encore d’historique : enregistre quelques jours pour voir ta projection au rythme réel.';
+  if(logged.length&&avg>0) p1='📊 D\'après mon historique, mon déficit moyen est de <b>'+Math.round(avg)+' kcal/jour</b>. Si je continue comme ça, j\'atteins mon objectif de <b>'+bft+' % de masse grasse</b> le <b>'+finDate(avg)+'</b>.';
+  else if(logged.length) p1='📊 D\'après mon historique, je n\'ai pas de déficit moyen (plutôt en surplus) : à ce rythme, l\'objectif n\'avance pas.';
+  else p1='📊 Pas encore d\'historique : enregistre quelques jours pour voir ta projection au rythme réel.';
   /* Phrase 2 : projection OPTIMALE estimée (profil + sport) */
   let p2;
-  if(rec) p2='🎯 Si à partir de maintenant, avec mes '+sportTxt+' et mon activité « <b>'+actLbl+'</b> », je tiens un déficit de <b>'+rec.def+' kcal/jour</b> (manger ~'+rec.intake+' kcal/j), j’atteins mon objectif de <b>'+bft+' % de masse grasse</b> le <b>'+finDate(rec.def)+'</b>.';
-  else p2='🎯 Complète ton profil (poids, masse grasse, activité, sport) pour estimer ta date d’atteinte optimale.';
+  if(rec) p2='🎯 Si à partir de maintenant, avec mes '+sportTxt+' et mon activité « <b>'+actLbl+'</b> », je tiens un déficit de <b>'+rec.def+' kcal/jour</b> (manger ~'+rec.intake+' kcal/j), j\'atteins mon objectif de <b>'+bft+' % de masse grasse</b> le <b>'+finDate(rec.def)+'</b>.';
+  else p2='🎯 Complète ton profil (poids, masse grasse, activité, sport) pour estimer ta date d\'atteinte optimale.';
   /* phrases courtes affichées ; le détail complet est dépliable via le point info */
-  const short1=(logged.length&&avg>0)?('😎 Je serai bogoss le <b>'+finDate(avg)+'</b>'):'📊 Logge quelques jours pour l’estimer';
-  const short2=rec?('💪 En tryhardant au max, je serai bogoss le <b>'+finDate(rec.def)+'</b>'):'🎯 Complète ton profil pour l’estimer';
+  const short1=(logged.length&&avg>0)?('😎 Je serai bogoss le <b>'+finDate(avg)+'</b>'):'📊 Logge quelques jours pour l\'estimer';
+  const short2=rec?('💪 En tryhardant au max, je serai bogoss le <b>'+finDate(rec.def)+'</b>'):'🎯 Complète ton profil pour l\'estimer';
   const goalLabel=g.byWeight?('🎯 Objectif : '+g.targetW.toFixed(1)+' kg'):('🎯 Objectif : '+g.targetW.toFixed(1)+' kg · '+bft+' % MG');
   box.innerHTML='<div class="goal-title">'+goalLabel+'</div>'+
     '<div class="goal-pct">'+prog.toFixed(1)+'%</div>'+
@@ -716,7 +715,7 @@ function fillProfile(){const p=S.profile;
   $('#p_act').value=migrateAct(p.act||'1.30');$('#p_sporth').value=p.sportHours||'';
   $('#p_goalmode').value=p.goalMode||'bf';$('#p_goalweight').value=p.goalWeight||'';
   $('#p_showsteps').checked=!!p.showSteps;
-  $('#p_sharehistory').checked=!!p.shareHistory;$('#p_sharefoods').checked=!!p.shareFoods;
+  $('#p_sharehistory').checked=!!p.shareHistory;
   updateGoalModeUI();renderKPI();}
 $('#p_goalmode').onchange=updateGoalModeUI;
 function renderKPI(){const b=bmr();const tdee=estimatedTDEE();const g=goalCalc();const rec=recDeficit();const sp=dailySportEstimate();
@@ -731,7 +730,7 @@ $('#saveProfile').onclick=()=>{const p=S.profile;p.age=$('#p_age').value;p.sex=$
   p.weight=$('#p_weight').value;p.bf=$('#p_bf').value;p.bft=$('#p_bft').value;p.act=$('#p_act').value;p.sportHours=$('#p_sporth').value;
   p.goalMode=$('#p_goalmode').value;p.goalWeight=$('#p_goalweight').value;p.showSteps=$('#p_showsteps').checked;
   save();renderKPI();renderDays();toast('Profil enregistré ✓');};
-$('#savePrivacy').onclick=()=>{const p=S.profile;p.shareHistory=$('#p_sharehistory').checked;p.shareFoods=$('#p_sharefoods').checked;save();toast('Préférences enregistrées ✓');};
+$('#savePrivacy').onclick=()=>{const p=S.profile;p.shareHistory=$('#p_sharehistory').checked;save();toast('Préférences enregistrées ✓');};
 
 /* sports presets */
 function renderSports(){const box=$('#sportList');if(!S.sports.length){box.innerHTML='<p class="muted" style="font-size:.84rem">Aucun preset pour l’instant.</p>';return;}
@@ -1186,19 +1185,7 @@ function renderFriendProfileContent(fs,email){
       histHtml='<p class="muted" style="margin-top:14px">Aucun jour dans l\'historique.</p>';
     }
   }
-  /* aliments favoris si partagés */
-  let foodsHtml='';
-  if(fs.profile&&fs.profile.shareFoods&&fs.favorites&&fs.favorites.length){
-    foodsHtml='<div class="card" style="margin-top:14px"><h2 style="margin-top:0">Aliments favoris</h2>';
-    fs.favorites.slice(0,10).forEach(f=>{
-      foodsHtml+='<div class="fav" style="margin-bottom:8px">'+
-        (f.img?'<img src="'+esc(f.img)+'" style="width:36px;height:36px;border-radius:8px;object-fit:cover">':'')+
-        '<div class="info"><div class="nm">'+esc(f.name)+'</div>'+
-        '<div class="mac">'+Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+(f.per==='unit'?' /portion':' /100g')+'</div></div></div>';
-    });
-    foodsHtml+='</div>';
-  }
-  return profileHtml+goalHtml+todayHtml+histHtml+foodsHtml;
+  return profileHtml+goalHtml+todayHtml+histHtml;
 }
 
 /* ============================== IA ALIMENT ============================== */
