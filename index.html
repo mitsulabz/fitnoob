@@ -393,6 +393,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
           <div><label>Protéines (g)</label><input id="m_p" type="number" min="0" step="0.1"></div>
           <div><label>Glucides (g)</label><input id="m_g" type="number" min="0" step="0.1"></div>
           <div><label>Lipides (g)</label><input id="m_l" type="number" min="0" step="0.1"></div>
+          <div><label>Fibres (g)</label><input id="m_fi" type="number" min="0" step="0.1"></div>
         </div>
         <div class="qtybar">
           <div class="fld"><label id="m_qtyLabel">Quantité (g)</label><input id="m_qty" type="number" value="100" min="0" step="1"></div>
@@ -452,7 +453,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V4.2 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V4.3 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -569,13 +570,14 @@ function targetMacros(tIntake,weight){if(!tIntake||!weight)return null;
   const tl=Math.round(Math.max(weight*0.8,tIntake*0.25/9));
   const tg=Math.max(0,Math.round((tIntake-tp*4-tl*9)/4));
   return {tp,tg,tl};}
-function macroBar(p,g,l,tm){const pc=p*4,gc=g*4,lc=l*9,t=(pc+gc+lc)||1;
+function macroBar(p,g,l,tm,fi){const pc=p*4,gc=g*4,lc=l*9,t=(pc+gc+lc)||1;
   function leg(val,tgt,color,label){
     const cl=tgt?(val>tgt?'over':'ok'):'';
     const tgtStr=tgt?('<span class="tgt"> / '+tgt+'g</span>'):'';
     return '<span><i class="d '+color+'"></i>'+label+' <span class="'+cl+'">'+Math.round(val)+'g</span>'+tgtStr+'</span>';}
+  const fiStr=(fi>0)?('<span><i class="d" style="background:#7ec8a0"></i>Fibres <span>'+Math.round(fi)+'g</span></span>'):'';  
   return '<div class="mbar"><span class="mp" style="width:'+(pc/t*100)+'%"></span><span class="mg" style="width:'+(gc/t*100)+'%"></span><span class="ml" style="width:'+(lc/t*100)+'%"></span></div>'+
-  '<div class="mleg">'+leg(p,tm&&tm.tp,'mp','Prot.')+leg(g,tm&&tm.tg,'mg','Gluc.')+leg(l,tm&&tm.tl,'ml','Lip.')+'</div>';}
+  '<div class="mleg">'+leg(p,tm&&tm.tp,'mp','Prot.')+leg(g,tm&&tm.tg,'mg','Gluc.')+leg(l,tm&&tm.tl,'ml','Lip.')+fiStr+'</div>';}
 
 function renderDays(){
   const box=$('#days');const range=buildDayRange();const today=dstr(new Date());
@@ -583,7 +585,7 @@ function renderDays(){
   const todayD=new Date();todayD.setHours(0,0,0,0);
   range.forEach(ds=>{
     const day=getDayRO(ds);
-    const kcal=Math.round(dayKcal(day));const P=dayMacro(day,'p'),G=dayMacro(day,'g'),L=dayMacro(day,'l');
+    const kcal=Math.round(dayKcal(day));const P=dayMacro(day,'p'),G=dayMacro(day,'g'),L=dayMacro(day,'l'),FI=dayMacro(day,'fi');
     const logged=day.foods.length>0;
     const exp=dayExpend(day);
     const def=logged?(exp-kcal):0;
@@ -612,7 +614,7 @@ function renderDays(){
     let li='';day.foods.forEach((f,fi)=>{li+='<li><span>'+esc(f.n)+'</span><span class="r">'+Math.round(f.k)+' kcal <button class="rmf" data-ds="'+ds+'" data-fi="'+fi+'">✕</button></span></li>';});
     const foods='<details class="foods"'+(day.foods.length?' open':'')+'><summary>Aliments ('+day.foods.length+')</summary><ul>'+li+'</ul><button class="addfoodbtn" data-ds="'+ds+'">＋ Ajouter un aliment</button></details>';
     const tm=logged?targetMacros(tIntake,num(S.profile.weight)):null;
-    const macro=logged?macroBar(P,G,L,tm):'';
+    const macro=logged?macroBar(P,G,L,tm,FI):'';
     const op=isToday?' open':'';
     cards.push('<details class="day'+(isToday?' today':'')+'" data-ds="'+ds+'"'+op+'>'+
       '<summary><span class="sum-date">'+frDate(ds)+(isToday?' • aujourd\'hui':'')+'</span>'+
@@ -752,7 +754,7 @@ function renderFav(){const box=$('#favList');
   $$('.fav_del').forEach(b=>b.onclick=()=>{S.favorites.splice(+b.dataset.i,1);save();renderFav();});}
 function favRow(f,i){const per=f.per==='unit'?'/ portion':'/ 100 g';
   const img=f.img?'<img src="'+esc(f.img)+'" alt="">':'';
-  return '<div class="fav">'+img+'<div class="info"><div class="nm">'+esc(f.name)+'</div><div class="mac">'+Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+' '+per+'</div></div><button class="iconbtn fav_del" data-i="'+i+'">🗑️</button></div>';}
+  return '<div class="fav">'+img+'<div class="info"><div class="nm">'+esc(f.name)+'</div><div class="mac">'+Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+(f.fi>0?' · Fi'+round1(f.fi):'')+' '+per+'</div></div><button class="iconbtn fav_del" data-i="'+i+'">🗑️</button></div>';}
 $('#favAdd').onclick=()=>openFoodModal(null); // null = ajout aux favoris uniquement
 
 /* ============================== MODAL ALIMENT ============================== */
@@ -782,10 +784,10 @@ async function offSearch(q){const box=$('#offResults');box.innerHTML='<div class
 }
 function offToFood(p){const n=p.nutriments||{};return{
   name:(p.product_name||'Produit').trim()+(p.brands?(' — '+p.brands.split(',')[0].trim()):''),
-  per:'100',kcal:num(n['energy-kcal_100g']),p:num(n['proteins_100g']),g:num(n['carbohydrates_100g']),l:num(n['fat_100g']),
+  per:'100',kcal:num(n['energy-kcal_100g']),p:num(n['proteins_100g']),g:num(n['carbohydrates_100g']),l:num(n['fat_100g']),fi:num(n['fiber_100g']||0),
   img:p.image_front_small_url||''};}
 function resRow(f){return '<div class="res" data-f=\''+esc(JSON.stringify(f))+'\'>'+(f.img?'<img src="'+esc(f.img)+'">':'')+
-  '<div class="info"><div class="nm">'+esc(f.name)+'</div><div class="mac">'+Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+' / 100 g</div></div></div>';}
+  '<div class="info"><div class="nm">'+esc(f.name)+'</div><div class="mac">'+Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+(f.fi>0?' · Fi'+round1(f.fi):'')+' / 100 g</div></div></div>';}
 function bindRes(box){box.querySelectorAll('.res[data-f]').forEach(el=>el.onclick=()=>{const f=JSON.parse(el.dataset.f);openQty(f);});}
 $('#offSearchBtn').onclick=()=>{const q=$('#offQuery').value.trim();if(q.length<2){toast('Tape au moins 2 lettres');return;}offSearch(q);};
 $('#offQuery').addEventListener('keydown',e=>{if(e.key==='Enter')$('#offSearchBtn').click();});
@@ -827,10 +829,10 @@ function updManualLabel(){$('#m_qtyLabel').textContent=$('#m_basis').value==='un
 $('#m_basis').onchange=updManualLabel;
 $('#m_add').onclick=()=>{const name=$('#m_name').value.trim();if(!name){toast('Nom requis');return;}
   const basis=$('#m_basis').value;
-  const base={name,per:basis,kcal:num($('#m_kcal').value),p:num($('#m_p').value),g:num($('#m_g').value),l:num($('#m_l').value),img:''};
+  const base={name,per:basis,kcal:num($('#m_kcal').value),p:num($('#m_p').value),g:num($('#m_g').value),l:num($('#m_l').value),fi:num($('#m_fi').value),img:''};
   if(currentDS){const qty=num($('#m_qty').value)||(basis==='unit'?1:100);addToDay(base,qty);} // addToDay enregistre aussi dans la liste
   else{addFav(base);renderFav();renderFavPicker();toast('Ajouté ✓');}
-  $('#m_name').value='';$('#m_kcal').value='';$('#m_p').value='';$('#m_g').value='';$('#m_l').value='';
+  $('#m_name').value='';$('#m_kcal').value='';$('#m_p').value='';$('#m_g').value='';$('#m_l').value='';$('#m_fi').value='';
   if(currentDS)closeFoodModal();
 };
 
@@ -844,10 +846,10 @@ function openQty(f,fromFav){
   const unit=f.per==='unit';
   $('#qtyLabel').textContent=unit?'Nombre de portions':'Quantité (g)';
   $('#qtyVal').value=unit?1:100;$('#qtyVal').step=unit?0.5:10;
-  $('#qtyInfo').innerHTML=Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+(unit?' / portion':' / 100 g');
+  $('#qtyInfo').innerHTML=Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+(f.fi>0?' · Fi'+round1(f.fi):'')+(unit?' / portion':' / 100 g');
   updQtyPreview();$('#qtyModal').classList.add('open');}
 function updQtyPreview(){if(!qtyFood)return;const q=num($('#qtyVal').value);const sc=qtyFood.per==='unit'?q:q/100;
-  $('#qtyPreview').textContent='→ '+Math.round(qtyFood.kcal*sc)+' kcal, P'+round1(qtyFood.p*sc)+' G'+round1(qtyFood.g*sc)+' L'+round1(qtyFood.l*sc);}
+  $('#qtyPreview').textContent='→ '+Math.round(qtyFood.kcal*sc)+' kcal, P'+round1(qtyFood.p*sc)+' G'+round1(qtyFood.g*sc)+' L'+round1(qtyFood.l*sc)+(qtyFood.fi>0?' Fi'+round1(qtyFood.fi*sc):'');}
 $('#qtyVal').addEventListener('input',updQtyPreview);
 $('#qtyClose').onclick=()=>$('#qtyModal').classList.remove('open');
 $('#qtyModal').onclick=e=>{if(e.target.id==='qtyModal')$('#qtyModal').classList.remove('open');};
@@ -857,10 +859,10 @@ $('#qtyAdd').onclick=()=>{if(!qtyFood)return;const q=num($('#qtyVal').value)||1;
 /* --- helpers ajout --- */
 function favKey(f){return (f.name||'').trim().toLowerCase()+'|'+(f.per||'100');}
 function addFav(f){if(S.favorites.some(x=>favKey(x)===favKey(f)))return false; // dé-doublonnage
-  S.favorites.unshift({name:f.name,per:f.per||'100',kcal:f.kcal,p:f.p,g:f.g,l:f.l,img:f.img||''});save();return true;}
+  S.favorites.unshift({name:f.name,per:f.per||'100',kcal:f.kcal,p:f.p,g:f.g,l:f.l,fi:f.fi||0,img:f.img||''});save();return true;}
 function addToDay(f,qty){const sc=(f.per==='unit')?qty:qty/100;const d=getDay(currentDS);
   const label=f.name+(f.per==='unit'?(qty!==1?' ×'+qty:''):' '+qty+'g');
-  d.foods.push({n:label,k:Math.round(f.kcal*sc),p:f.p*sc,g:f.g*sc,l:f.l*sc});save();
+  d.foods.push({n:label,k:Math.round(f.kcal*sc),p:f.p*sc,g:f.g*sc,l:f.l*sc,fi:(f.fi||0)*sc});save();
   addFav(f);renderFav();renderFavPicker(); // enregistrement auto dans la liste d'aliments
   renderDays();toast('Ajouté ✓');}
 
@@ -1171,7 +1173,7 @@ function renderFriendProfileContent(fs,email){
       recent.forEach(ds=>{
         const d=friendDays[ds];const isToday=(ds===todayDS);
         const k=Math.round(d.foods.reduce((s,f)=>s+f.k,0));
-        const P=d.foods.reduce((s,f)=>s+(f.p||0),0),G=d.foods.reduce((s,f)=>s+(f.g||0),0),L=d.foods.reduce((s,f)=>s+(f.l||0),0);
+        const P=d.foods.reduce((s,f)=>s+(f.p||0),0),G=d.foods.reduce((s,f)=>s+(f.g||0),0),L=d.foods.reduce((s,f)=>s+(f.l||0),0),FI2=d.foods.reduce((s,f)=>s+(f.fi||0),0);
         const exp=b?Math.round(b*actFactor(d.act||p.act||'1.30'))+(d.sport?num(d.sport.kcal):0):0;
         const def=exp-k;const dc=def>=0?'pos':'neg';
         const li=d.foods.map(f=>'<li><span>'+esc(f.n)+'</span><span class="r">'+Math.round(f.k)+' kcal</span></li>').join('');
@@ -1181,7 +1183,7 @@ function renderFriendProfileContent(fs,email){
           '<summary><span class="sum-date">'+dateLabel+'</span>'+
           '<span class="sum-meta">'+(d.sport?esc(d.sport.name)+'<br>':'')+
           (d.foods.length?'<span class="sum-def '+dc+'">'+(def>=0?'+':'')+Math.round(def)+' kcal</span>':'')+'</span></summary>'+
-          (d.foods.length?'<div class="energy"><span>Ingéré <b>'+k+'</b> kcal</span>'+(exp?'<span>Dépensé <b>'+Math.round(exp)+'</b> kcal</span><span>Déficit <b class="'+dc+'">'+(def>=0?'+':'')+Math.round(def)+'</b> kcal</span>':'')+'</div>'+macroBar(P,G,L,null)+'<details class="foods" open><summary>Aliments ('+d.foods.length+')</summary><ul>'+li+'</ul></details>':emptyNote)+
+          (d.foods.length?'<div class="energy"><span>Ingéré <b>'+k+'</b> kcal</span>'+(exp?'<span>Dépensé <b>'+Math.round(exp)+'</b> kcal</span><span>Déficit <b class="'+dc+'">'+(def>=0?'+':'')+Math.round(def)+'</b> kcal</span>':'')+'</div>'+macroBar(P,G,L,null,FI2)+'<details class="foods" open><summary>Aliments ('+d.foods.length+')</summary><ul>'+li+'</ul></details>':emptyNote)+
           '</details>';
       });
       histHtml+='</div>';
@@ -1217,7 +1219,7 @@ async function runFoodAI(){
     const foods=data.foods;
     if(!foods||!foods.length){res.innerHTML='<div class="empty">Impossible d\'estimer — reformule ta description.</div>';return;}
     let html='<p class="muted" style="font-size:.8rem;margin:0 0 8px">Estimation IA — vérifie avant d\'ajouter :</p>';
-    foods.forEach((f,i)=>{html+='<div class="ai-food-row"><div class="info"><div class="nm">'+esc(f.name)+'</div><div class="mac">'+Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+'</div></div><button class="btn" data-aii="'+i+'" style="font-size:.8rem;padding:7px 12px">＋</button></div>';});
+    foods.forEach((f,i)=>{html+='<div class="ai-food-row"><div class="info"><div class="nm">'+esc(f.name)+'</div><div class="mac">'+Math.round(f.kcal)+' kcal · P'+round1(f.p)+' G'+round1(f.g)+' L'+round1(f.l)+(f.fi>0?' · Fi'+round1(f.fi):'')+'</div></div><button class="btn" data-aii="'+i+'" style="font-size:.8rem;padding:7px 12px">＋</button></div>';});
     if(foods.length>1)html+='<button class="btn block" id="ai_addall" style="margin-top:4px">＋ Tout ajouter</button>';
     res.innerHTML=html;
     res.querySelectorAll('[data-aii]').forEach(b=>b.onclick=()=>{addAIFood(foods[+b.dataset.aii]);b.textContent='✓';b.disabled=true;});
@@ -1226,8 +1228,8 @@ async function runFoodAI(){
   btn.disabled=false;
 }
 function addAIFood(f){
-  if(currentDS){const d=getDay(currentDS);d.foods.push({n:f.name,k:Math.round(f.kcal),p:f.p,g:f.g,l:f.l});save();renderDays();}
-  else{addFav({name:f.name,per:'unit',kcal:f.kcal,p:f.p,g:f.g,l:f.l,img:''});renderFav();renderFavPicker();}
+  if(currentDS){const d=getDay(currentDS);d.foods.push({n:f.name,k:Math.round(f.kcal),p:f.p,g:f.g,l:f.l,fi:f.fi||0});save();renderDays();}
+  else{addFav({name:f.name,per:'unit',kcal:f.kcal,p:f.p,g:f.g,l:f.l,fi:f.fi||0,img:''});renderFav();renderFavPicker();}
 }
 $('#ai_run').onclick=runFoodAI;
 
