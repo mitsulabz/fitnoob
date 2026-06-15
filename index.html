@@ -452,7 +452,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V4.1 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V4.2 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -1162,22 +1162,26 @@ function renderFriendProfileContent(fs,email){
   let histHtml='';
   if(fs.profile&&fs.profile.shareHistory){
     const todayD2=new Date();todayD2.setHours(0,0,0,0);
-    const recent=Object.keys(fs.days||{}).filter(ds=>{const d=parseDS(ds);return d<todayD2&&fs.days[ds].foods&&fs.days[ds].foods.length;}).sort(cmpDS).slice(-14).reverse();
+    const todayDS=dstr(todayD2);
+    const friendDays=Object.assign({},fs.days||{});
+    if(!friendDays[todayDS])friendDays[todayDS]={foods:[],act:p.act||'1.30',sport:null,weight:null};
+    const recent=Object.keys(friendDays).filter(ds=>{const d=parseDS(ds);return d<=todayD2&&(ds===todayDS||(friendDays[ds].foods&&friendDays[ds].foods.length));}).sort(cmpDS).slice(-14).reverse();
     if(recent.length){
       histHtml='<div style="margin-top:14px"><h2 style="margin:0 0 10px;font-size:1rem">Suivi récent</h2>';
       recent.forEach(ds=>{
-        const d=fs.days[ds];const k=Math.round(d.foods.reduce((s,f)=>s+f.k,0));
+        const d=friendDays[ds];const isToday=(ds===todayDS);
+        const k=Math.round(d.foods.reduce((s,f)=>s+f.k,0));
         const P=d.foods.reduce((s,f)=>s+(f.p||0),0),G=d.foods.reduce((s,f)=>s+(f.g||0),0),L=d.foods.reduce((s,f)=>s+(f.l||0),0);
         const exp=b?Math.round(b*actFactor(d.act||p.act||'1.30'))+(d.sport?num(d.sport.kcal):0):0;
         const def=exp-k;const dc=def>=0?'pos':'neg';
         const li=d.foods.map(f=>'<li><span>'+esc(f.n)+'</span><span class="r">'+Math.round(f.k)+' kcal</span></li>').join('');
-        histHtml+='<details class="day" style="margin-bottom:10px">'+
-          '<summary><span class="sum-date">'+frDate(ds)+'</span>'+
+        const dateLabel=(isToday?'Aujourd\'hui — ':'')+frDate(ds);
+        const emptyNote=isToday&&!d.foods.length?'<p class="muted" style="font-size:.82rem;margin:6px 0 0">Rien de loggé pour l\'instant.</p>':'';
+        histHtml+='<details class="day" style="margin-bottom:10px"'+(isToday?' open':'')+'>'+
+          '<summary><span class="sum-date">'+dateLabel+'</span>'+
           '<span class="sum-meta">'+(d.sport?esc(d.sport.name)+'<br>':'')+
-          '<span class="sum-def '+dc+'">'+(def>=0?'+':'')+Math.round(def)+' kcal</span></span></summary>'+
-          '<div class="energy"><span>Ingéré <b>'+k+'</b> kcal</span>'+(exp?'<span>Dépensé <b>'+Math.round(exp)+'</b> kcal</span><span>Déficit <b class="'+dc+'">'+(def>=0?'+':'')+Math.round(def)+'</b> kcal</span>':'')+'</div>'+
-          macroBar(P,G,L,null)+
-          '<details class="foods" open><summary>Aliments ('+d.foods.length+')</summary><ul>'+li+'</ul></details>'+
+          (d.foods.length?'<span class="sum-def '+dc+'">'+(def>=0?'+':'')+Math.round(def)+' kcal</span>':'')+'</span></summary>'+
+          (d.foods.length?'<div class="energy"><span>Ingéré <b>'+k+'</b> kcal</span>'+(exp?'<span>Dépensé <b>'+Math.round(exp)+'</b> kcal</span><span>Déficit <b class="'+dc+'">'+(def>=0?'+':'')+Math.round(def)+'</b> kcal</span>':'')+'</div>'+macroBar(P,G,L,null)+'<details class="foods" open><summary>Aliments ('+d.foods.length+')</summary><ul>'+li+'</ul></details>':emptyNote)+
           '</details>';
       });
       histHtml+='</div>';
