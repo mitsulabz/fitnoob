@@ -453,7 +453,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V3.7 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V3.8 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -461,7 +461,7 @@ const LS_KEY='fitnoob_v1';
 const SUPABASE_URL='https://arydsxswhbgpfayjgtak.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyeWRzeHN3aGJncGZheWpndGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODU1NzcsImV4cCI6MjA5Njk2MTU3N30.JwhGPqopTzi74jv-1zM5JSOAZ0O78p1Q667pB4ZMcH8';
 
-const DEFAULT={profile:{age:'',sex:'h',height:'',weight:'',bf:'',bft:'',act:'1.30',sportHours:'',goalMode:'bf',goalWeight:'',showSteps:false,shareHistory:false,shareFoods:false},
+const DEFAULT={profile:{age:'',sex:'h',height:'',weight:'',bf:'',bft:'',act:'1.30',sportHours:'',goalMode:'bf',goalWeight:'',showSteps:false,shareHistory:true,shareFoods:true},
   days:{},favorites:[],sports:[],theme:'light'};
 let S=load();
 function load(){try{const r=localStorage.getItem(LS_KEY);if(r){const o=JSON.parse(r);return migrateState(Object.assign(JSON.parse(JSON.stringify(DEFAULT)),o));}}catch(e){}return JSON.parse(JSON.stringify(DEFAULT));}
@@ -605,7 +605,7 @@ function renderDays(){
     /* cible adaptative du jour : -20% de la dépense réelle de CE jour */
     const tDef=deficitFor(exp);const tIntake=Math.round(exp-tDef);
     let targetRow;
-    if(logged){const rem=tIntake-kcal;targetRow='<div class="field">🎯 Cible <b>'+tIntake+'</b> kcal (−20 %) · '+(rem>=0?('reste <b style="color:var(--ok)">'+rem+'</b>'):('<b style="color:var(--bad)">dépassé de '+(-rem)+'</b>'))+'</div>';}
+    if(logged){const rem=tIntake-kcal;targetRow='<div class="field">🎯 Cible <b>'+tIntake+'</b> kcal (−20 %) · '+(rem>=0?('reste <b style="color:var(--ok)">'+rem+'</b> à manger'):('<b style="color:var(--bad)">dépassé de '+(-rem)+'</b>'))+'</div>';}
     else targetRow='<div class="field">🎯 Cible du jour : viser ~<b>'+tIntake+'</b> kcal <span class="muted">(−20 % de '+Math.round(exp)+')</span></div>';
     let energy;
     if(logged){const dc=def>=0?'pos':'neg';energy='<div class="energy"><span>Ingéré <b>'+kcal+'</b></span><span>Dépensé <b>'+Math.round(exp)+'</b></span><span>Déficit <b class="'+dc+'">'+(def>=0?'+':'')+Math.round(def)+'</b></span><span class="cum">cumul '+(cum>=0?'+':'')+Math.round(cum)+'</span></div>';}
@@ -1159,22 +1159,31 @@ function renderFriendProfileContent(fs,email){
     (b?'<div class="k"><div class="v">'+b+'</div><div class="l">BMR kcal</div></div>':'')+
     '</div>'+
     '<p class="muted" style="font-size:.8rem;margin:8px 0 0">Activité : '+esc(actLbl)+(p.sportHours?' · '+p.sportHours+' h sport/sem':'')+'</p></div>';
-  /* historique (7 derniers jours) si partagé */
+  /* historique (14 derniers jours) si partagé — vue lecture seule comme le Suivi */
   let histHtml='';
   if(fs.profile&&fs.profile.shareHistory){
     const todayD2=new Date();todayD2.setHours(0,0,0,0);
-    const recent=Object.keys(fs.days||{}).filter(ds=>{const d=parseDS(ds);return d<todayD2&&fs.days[ds].foods&&fs.days[ds].foods.length;}).sort(cmpDS).slice(-7);
+    const recent=Object.keys(fs.days||{}).filter(ds=>{const d=parseDS(ds);return d<todayD2&&fs.days[ds].foods&&fs.days[ds].foods.length;}).sort(cmpDS).slice(-14).reverse();
     if(recent.length){
-      histHtml='<div class="card" style="margin-top:14px"><h2 style="margin-top:0">Historique récent</h2>';
-      recent.reverse().forEach(ds=>{
+      histHtml='<div style="margin-top:14px"><h2 style="margin:0 0 10px;font-size:1rem">Suivi récent</h2>';
+      recent.forEach(ds=>{
         const d=fs.days[ds];const k=Math.round(d.foods.reduce((s,f)=>s+f.k,0));
+        const P=d.foods.reduce((s,f)=>s+(f.p||0),0),G=d.foods.reduce((s,f)=>s+(f.g||0),0),L=d.foods.reduce((s,f)=>s+(f.l||0),0);
         const exp=b?Math.round(b*actFactor(d.act||p.act||'1.30'))+(d.sport?num(d.sport.kcal):0):0;
         const def=exp-k;const dc=def>=0?'pos':'neg';
-        histHtml+='<div style="display:flex;justify-content:space-between;font-size:.85rem;padding:5px 0;border-bottom:1px dashed var(--line)">'+
-          '<span>'+frDate(ds)+'</span>'+
-          '<span><b>'+k+'</b> kcal'+(exp?' · <b class="'+dc+'">'+(def>=0?'+':'')+def+'</b>':'')+'</span></div>';
+        const li=d.foods.map(f=>'<li><span>'+esc(f.n)+'</span><span class="r">'+Math.round(f.k)+' kcal</span></li>').join('');
+        histHtml+='<details class="day" style="margin-bottom:10px">'+
+          '<summary><span class="sum-date">'+frDate(ds)+'</span>'+
+          '<span class="sum-meta">'+(d.sport?esc(d.sport.name)+'<br>':'')+
+          '<span class="sum-def '+dc+'">'+(def>=0?'+':'')+Math.round(def)+' kcal</span></span></summary>'+
+          '<div class="energy"><span>Ingéré <b>'+k+'</b> kcal</span>'+(exp?'<span>Dépensé <b>'+Math.round(exp)+'</b> kcal</span><span>Déficit <b class="'+dc+'">'+(def>=0?'+':'')+Math.round(def)+'</b> kcal</span>':'')+'</div>'+
+          macroBar(P,G,L,null)+
+          '<details class="foods" open><summary>Aliments ('+d.foods.length+')</summary><ul>'+li+'</ul></details>'+
+          '</details>';
       });
       histHtml+='</div>';
+    } else {
+      histHtml='<p class="muted" style="margin-top:14px">Aucun jour loggé dans l'historique.</p>';
     }
   }
   /* aliments favoris si partagés */
