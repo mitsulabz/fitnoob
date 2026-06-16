@@ -454,7 +454,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V4.5 · 15/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V4.6 · 16/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -499,14 +499,14 @@ function bmr(){const p=S.profile;const w=num(p.weight),h=num(p.height),a=num(p.a
 }
 /* 8 niveaux d'activité (hors sport) avec leur facteur multiplicateur du métabolisme */
 const ACT_LEVELS=[
- {key:'1.10',label:'Bloqué au lit',desc:'maladie, < 2 000 pas/j'},
- {key:'1.20',label:'Canap / bureau / voiture',desc:'très sédentaire · 2–4k pas/j'},
- {key:'1.30',label:'Courses, tâches ménagères légères',desc:'bouge un peu · 4–6k pas/j'},
- {key:'1.40',label:"S'active quotidiennement",desc:'beaucoup de déplacements · 6–9k pas/j'},
- {key:'1.50',label:'Travail debout / bouge tout le temps',desc:'marche régulière · 9–12k pas/j'},
- {key:'1.60',label:'Métier physique léger',desc:'très actif · >12k pas/j'},
- {key:'1.75',label:'Métier physique dur',desc:'artisan, manutention, serveur actif'},
- {key:'2.00',label:"Bouge autant qu'un sportif pro",desc:'agriculture, chantier, sport pro'}
+ {key:'1.10',label:'Bloqué au lit',desc:'×1.10 · maladie, < 2 000 pas/j'},
+ {key:'1.20',label:'Canap / bureau / voiture',desc:'×1.20 · très sédentaire · 2–4k pas/j'},
+ {key:'1.30',label:'Courses, tâches ménagères légères',desc:'×1.30 · bouge un peu · 4–6k pas/j'},
+ {key:'1.40',label:"S'active quotidiennement",desc:'×1.40 · beaucoup de déplacements · 6–9k pas/j'},
+ {key:'1.50',label:'Travail debout / bouge tout le temps',desc:'×1.50 · marche régulière · 9–12k pas/j'},
+ {key:'1.60',label:'Métier physique léger',desc:'×1.60 · très actif · >12k pas/j'},
+ {key:'1.75',label:'Métier physique dur',desc:'×1.75 · artisan, manutention, serveur actif'},
+ {key:'2.00',label:"Bouge autant qu'un sportif pro",desc:'×2.00 · agriculture, chantier, sport pro'}
 ];
 const OLD_ACT={sed:1.2,act:1.45,sup:1.7}; /* compat anciennes données */
 function actFactor(k){if(k in OLD_ACT)return OLD_ACT[k];const f=parseFloat(k);return isFinite(f)?f:1.2;}
@@ -555,7 +555,7 @@ function recDeficit(){const w=num(S.profile.weight);const tdee=estimatedTDEE();c
 function getDay(ds){if(!S.days[ds])S.days[ds]={weight:'',act:S.profile.act||'1.30',sport:null,foods:[]};return S.days[ds];}
 function dayKcal(d){return d.foods.reduce((s,f)=>s+f.k,0);}
 function dayMacro(d,k){return d.foods.reduce((s,f)=>s+(f[k]||0),0);}
-function dayExpend(d){const sport=d.sport?num(d.sport.kcal):0;const b=bmr();const base=b?Math.round(b*actFactor(d.act)):0;return base+sport;}
+function dayExpend(d){const sport=d.sport?num(d.sport.kcal):0;const b=bmr();const base=b?Math.round(b*actFactor(S.profile.act)):0;return base+sport;}
 function dayUsed(d){return d.foods.length||d.weight||d.sport;}
 function buildDayRange(){const keys=Object.keys(S.days);
   const today=new Date();today.setHours(0,0,0,0);
@@ -600,8 +600,6 @@ function renderDays(){
       sumDef=sm+' <span class="sum-def '+(def>=0?'pos':'neg')+'">'+(def>=0?'+':'')+Math.round(def)+' kcal</span>';}
     else sumDef='<span class="muted">à compléter</span>';
     const sportTxt=day.sport?(day.sport.name+(num(day.sport.kcal)?' '+Math.round(day.sport.kcal)+'kcal':'')):'';
-    const actOpts=ACT_LEVELS.map(l=>'<option value="'+l.key+'"'+(migrateAct(day.act)===l.key?' selected':'')+'>'+l.label+'</option>').join('');
-    const actSel='<div class="field">🚶 Activité <select class="actsel" data-ds="'+ds+'">'+actOpts+'</select></div>';
     let sportOpts='<option value="">— Repos / aucun —</option>';
     S.sports.forEach((sp,i)=>{const sel=(day.sport&&day.sport.name===sp.name)?' selected':'';sportOpts+='<option value="'+i+'"'+sel+'>'+esc(sp.name)+' ('+sp.kcal+' kcal)</option>';});
     const sportSel='<div class="field">🏃 Sport <select class="sportsel" data-ds="'+ds+'">'+sportOpts+'</select></div>';
@@ -623,7 +621,7 @@ function renderDays(){
     cards.push('<details class="day'+(isToday?' today':'')+'" data-ds="'+ds+'"'+op+'>'+
       '<summary><span class="sum-date">'+frDate(ds)+(isToday?' • aujourd\'hui':'')+'</span>'+
       '<span class="sum-meta">'+(sportTxt?esc(sportTxt)+'<br>':'')+sumDef+'</span></summary>'+
-      actSel+sportSel+
+      sportSel+
       '<div class="row">'+weightRow+stepsRow+'</div>'+targetRow+
       macro+energy+foods+'</details>');
   });
@@ -675,7 +673,6 @@ function renderGoal(cum,range){
 }
 
 function bindDayEvents(){
-  $$('.actsel').forEach(sel=>sel.onchange=()=>{getDay(sel.dataset.ds).act=sel.value;save();renderDays();});
   $$('.sportsel').forEach(sel=>sel.onchange=()=>{const d=getDay(sel.dataset.ds);const v=sel.value;d.sport=(v==='')?null:{name:S.sports[v].name,kcal:S.sports[v].kcal};save();renderDays();});
   $$('.wt').forEach(i=>i.onchange=()=>{getDay(i.dataset.ds).weight=i.value.trim();save();renderDays();});
   $$('.steps-inp').forEach(i=>i.onchange=()=>{getDay(i.dataset.ds).steps=i.value.trim();save();});
@@ -1178,7 +1175,7 @@ function renderFriendProfileContent(fs,email){
         const d=friendDays[ds];const isToday=(ds===todayDS);
         const k=Math.round(d.foods.reduce((s,f)=>s+f.k,0));
         const P=d.foods.reduce((s,f)=>s+(f.p||0),0),G=d.foods.reduce((s,f)=>s+(f.g||0),0),L=d.foods.reduce((s,f)=>s+(f.l||0),0),FI2=d.foods.reduce((s,f)=>s+(f.fi||0),0),SEL2=d.foods.reduce((s,f)=>s+(f.sel||0),0);
-        const exp=b?Math.round(b*actFactor(d.act||p.act||'1.30'))+(d.sport?num(d.sport.kcal):0):0;
+        const exp=b?Math.round(b*actFactor(p.act||'1.30'))+(d.sport?num(d.sport.kcal):0):0;
         const def=exp-k;const dc=def>=0?'pos':'neg';
         const li=d.foods.map(f=>'<li><span>'+esc(f.n)+'</span><span class="r">'+Math.round(f.k)+' kcal</span></li>').join('');
         const dateLabel=(isToday?'Aujourd\'hui — ':'')+frDate(ds);
