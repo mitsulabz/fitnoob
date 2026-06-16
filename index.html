@@ -284,7 +284,6 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
         <input type="number" id="p_sporth" min="0" max="40" step="0.5" placeholder="ex : 4">
       </div>
       <div class="fld">
-        <label class="tog"><input type="checkbox" id="p_showsteps"><span class="tog-track"></span> Afficher les pas dans le suivi</label>
       </div>
       <button class="btn block" id="saveProfile" style="margin-top:6px">Enregistrer le profil</button>
       <div class="kpi" id="kpi" style="margin-top:14px"></div>
@@ -454,7 +453,7 @@ details.day.today:not([open]){background:var(--accent-soft);border-color:var(--a
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================== ÉTAT ============================== */
-const BUILD='V4.6 · 16/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
+const BUILD='V4.7 · 16/06/2026'; /* IMPORTANT : change ce repère à CHAQUE déploiement -> déclenche la mise à jour auto */
 const LS_KEY='fitnoob_v1';
 /* === CONFIG SUPABASE (synchro multi-appareils) ===
    Colle l'URL de ton projet et la clé "anon" (publique, sans danger à exposer).
@@ -462,7 +461,7 @@ const LS_KEY='fitnoob_v1';
 const SUPABASE_URL='https://arydsxswhbgpfayjgtak.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyeWRzeHN3aGJncGZheWpndGFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzODU1NzcsImV4cCI6MjA5Njk2MTU3N30.JwhGPqopTzi74jv-1zM5JSOAZ0O78p1Q667pB4ZMcH8';
 
-const DEFAULT={profile:{age:'',sex:'h',height:'',weight:'',bf:'',bft:'',act:'1.30',sportHours:'',goalMode:'bf',goalWeight:'',showSteps:false,shareHistory:true},
+const DEFAULT={profile:{age:'',sex:'h',height:'',weight:'',bf:'',bft:'',act:'1.30',sportHours:'',goalMode:'bf',goalWeight:'',shareHistory:true},
   days:{},favorites:[],sports:[],theme:'light'};
 let S=load();
 function load(){try{const r=localStorage.getItem(LS_KEY);if(r){const o=JSON.parse(r);return migrateState(Object.assign(JSON.parse(JSON.stringify(DEFAULT)),o));}}catch(e){}return JSON.parse(JSON.stringify(DEFAULT));}
@@ -604,7 +603,7 @@ function renderDays(){
     S.sports.forEach((sp,i)=>{const sel=(day.sport&&day.sport.name===sp.name)?' selected':'';sportOpts+='<option value="'+i+'"'+sel+'>'+esc(sp.name)+' ('+sp.kcal+' kcal)</option>';});
     const sportSel='<div class="field">🏃 Sport <select class="sportsel" data-ds="'+ds+'">'+sportOpts+'</select></div>';
     const weightRow='<div class="field">⚖️ Poids <input class="inp xs wt" data-ds="'+ds+'" value="'+esc(day.weight||'')+'" placeholder="—"> kg</div>';
-    const stepsRow=S.profile.showSteps?'<div class="field">👟 Pas <input class="inp xs steps-inp" data-ds="'+ds+'" value="'+esc(day.steps||'')+'" placeholder="—"></div>':'';
+
     /* cible adaptative du jour : -20% de la dépense réelle de CE jour */
     const tDef=deficitFor(exp);const tIntake=Math.round(exp-tDef);
     let targetRow;
@@ -622,7 +621,7 @@ function renderDays(){
       '<summary><span class="sum-date">'+frDate(ds)+(isToday?' • aujourd\'hui':'')+'</span>'+
       '<span class="sum-meta">'+(sportTxt?esc(sportTxt)+'<br>':'')+sumDef+'</span></summary>'+
       sportSel+
-      '<div class="row">'+weightRow+stepsRow+'</div>'+targetRow+
+      weightRow+targetRow+
       macro+energy+foods+'</details>');
   });
   box.innerHTML=cards.reverse().join('');
@@ -675,7 +674,6 @@ function renderGoal(cum,range){
 function bindDayEvents(){
   $$('.sportsel').forEach(sel=>sel.onchange=()=>{const d=getDay(sel.dataset.ds);const v=sel.value;d.sport=(v==='')?null:{name:S.sports[v].name,kcal:S.sports[v].kcal};save();renderDays();});
   $$('.wt').forEach(i=>i.onchange=()=>{getDay(i.dataset.ds).weight=i.value.trim();save();renderDays();});
-  $$('.steps-inp').forEach(i=>i.onchange=()=>{getDay(i.dataset.ds).steps=i.value.trim();save();});
   $$('.rmf').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();const d=getDay(b.dataset.ds);d.foods.splice(+b.dataset.fi,1);save();renderDays();});
   $$('.addfoodbtn').forEach(b=>b.onclick=()=>openFoodModal(b.dataset.ds));
 }
@@ -717,7 +715,6 @@ function fillProfile(){const p=S.profile;
   $('#p_weight').value=p.weight;$('#p_bf').value=p.bf;$('#p_bft').value=p.bft;
   $('#p_act').value=migrateAct(p.act||'1.30');$('#p_sporth').value=p.sportHours||'';
   $('#p_goalmode').value=p.goalMode||'bf';$('#p_goalweight').value=p.goalWeight||'';
-  $('#p_showsteps').checked=!!p.showSteps;
   $('#p_sharehistory').checked=!!p.shareHistory;
   updateGoalModeUI();renderKPI();}
 $('#p_goalmode').onchange=updateGoalModeUI;
@@ -731,7 +728,7 @@ function renderKPI(){const b=bmr();const tdee=estimatedTDEE();const g=goalCalc()
   $('#bmrNote').textContent=(S.profile.bf?'Métabolisme via Katch-McArdle (masse maigre). ':'Métabolisme via Mifflin-St-Jeor (renseigne ton % de masse grasse pour plus de précision). ')+'La dépense estimée sert à la projection ; le suivi quotidien utilise ta dépense réelle.';}
 $('#saveProfile').onclick=()=>{const p=S.profile;p.age=$('#p_age').value;p.sex=$('#p_sex').value;p.height=$('#p_height').value;
   p.weight=$('#p_weight').value;p.bf=$('#p_bf').value;p.bft=$('#p_bft').value;p.act=$('#p_act').value;p.sportHours=$('#p_sporth').value;
-  p.goalMode=$('#p_goalmode').value;p.goalWeight=$('#p_goalweight').value;p.showSteps=$('#p_showsteps').checked;
+  p.goalMode=$('#p_goalmode').value;p.goalWeight=$('#p_goalweight').value;
   save();renderKPI();renderDays();toast('Profil enregistré ✓');};
 $('#savePrivacy').onclick=()=>{const p=S.profile;p.shareHistory=$('#p_sharehistory').checked;save();toast('Préférences enregistrées ✓');};
 
